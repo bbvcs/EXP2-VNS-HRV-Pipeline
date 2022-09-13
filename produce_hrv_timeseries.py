@@ -70,7 +70,10 @@ def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
         # the number found can vary, I assume due to recording issues
         # so if there isn't even enough samples to make 2min (minimum for LF), exit early
         # note; this doesn't account for whether timestamps in the segment are associated with ecg, or with NaN (were a timestamp for another reading)
-        if len(segment) < ecg_srate * (60 * 2):
+        if len(segment_interval) < ecg_srate * (60 * 2):
+
+            freq_dom_hrv.append(np.NaN)
+            time_dom_hrv.append(np.NaN)
 
             modification_report["seg_idx"] = i
             modification_report["excluded"] = True
@@ -93,6 +96,9 @@ def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
 
         # if there isn't enough data in the segment AFTER we remove the NaNs (so looking only at ECG)
         if len(ecg) < ecg_srate * (60 * 2):
+
+            freq_dom_hrv.append(np.NaN)
+            time_dom_hrv.append(np.NaN)
 
             modification_report["seg_idx"] = i
             modification_report["excluded"] = True
