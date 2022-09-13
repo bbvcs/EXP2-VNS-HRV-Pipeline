@@ -41,11 +41,11 @@ if __name__ == "__main__":
         subject_to_files = json.load(sm)
 
 
-    subject_dir = f"subject_data/{subject}/"
+    subject_dir = f"subject_data/{subject}"
 
-    ecg_filename = subject_dir + subject_to_files[subject][0]
-    vitals_filename = subject_dir + subject_to_files[subject][1] 
-    ax3_filename = subject_dir + subject_to_files[subject][2]
+    ecg_filename = f"{subject_dir}/{subject_to_files[subject][0]}"
+    vitals_filename = f"{subject_dir}/{subject_to_files[subject][1]}" 
+    ax3_filename = f"{subject_dir}/{subject_to_files[subject][2]}"
 
 
     print("Gathering Vitalpatch ECG Data...")
@@ -84,7 +84,7 @@ if __name__ == "__main__":
 
     if save_merged_df:
         print("Saving Merged Data ...")
-        merged_df.to_csv(f"{subject_out_dir}/{subject}_AX3Vital_MERGED.csv")
+        merged_df.to_csv(f"{subject_dir}/{subject}_AX3Vital_MERGED.csv")
 
     
 
