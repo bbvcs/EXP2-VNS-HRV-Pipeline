@@ -49,13 +49,37 @@ def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
 
 
     for i in range(0, len(segments)):
-
+        
+        
         segment_interval = segments[i]
+
+        # keep a report of what happens to this to this segment
+        modification_report = {}
+        modification_report["seg_idx"] = np.NaN
+        modification_report["excluded"] = False
+        modification_report["n_rpeaks_noisy"] = np.NaN
+        modification_report["n_RRI_detected"] = np.NaN 
+        modification_report["n_RRI_suprathresh"] = np.NaN
+        modification_report["suprathresh_values"] = np.NaN
+        modification_report["notes"] = ""
         
         if v:
             print(f"\r{i}/{len(segments)-1}", end="")
+
+        # may get the case that no timestamps were found in the data for a segment interval
+        # the number found can vary, I assume due to recording issues
+        # so if there isn't even enough samples to make 2min (minimum for LF), exit early
+        # note; this doesn't account for whether timestamps in the segment are associated with ecg, or with NaN (were a timestamp for another reading)
+        if len(segment) < ecg_srate * (60 * 2):
+
+            modification_report["seg_idx"] = i
+            modification_report["excluded"] = True
+            modification_report["notes"] = "Not enough data recorded in this segment interval BEFORE NaN removed"
+            modification_report_list.append(modification_report)
+
+            continue
             
-        
+        # get the section of the DF between the first timestamp found within this segment interval, and the last
         segment = df[(df["timestamp"] >= segment_interval[0]) & (df["timestamp"] <= segment_interval[-1])]
 
         segment_labels.append(segment_interval[0]) # use first timestamp of 5min interval as label for segment
@@ -66,18 +90,22 @@ def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
         ecg = ecg[non_NaN_idx] # remove NaNs (samples of other properties in between ecg samples)
         ecg_timestamps = segment["timestamp"].to_numpy()[non_NaN_idx] # also remove timestamps corresponding to ECG NaN's 
 
+
+        # if there isn't enough data in the segment AFTER we remove the NaNs (so looking only at ECG)
+        if len(ecg) < ecg_srate * (60 * 2):
+
+            modification_report["seg_idx"] = i
+            modification_report["excluded"] = True
+            modification_report["notes"] = "Not enough data recorded in this segment interval AFTER NaN removed"
+            modification_report_list.append(modification_report)
+
+            continue
+
+
         timevec = np.cumsum(np.concatenate(([0], np.diff(ecg_timestamps)))) # 0 -> ~300,000 (time in ms)
 
 
-        # keep a report of what has been done to this segment
-        modification_report = {}
-        modification_report["seg_idx"] = np.NaN
-        modification_report["excluded"] = False
-        modification_report["n_rpeaks_noisy"] = np.NaN
-        modification_report["n_RRI_detected"] = np.NaN 
-        modification_report["n_RRI_suprathresh"] = np.NaN
-        modification_report["suprathresh_values"] = np.NaN
-        modification_report["notes"] = ""
+        
 
 
         """ Apply Empirical Mode Decomposition (EMD) to detrend the ECG Signal (remove low freq drift) """
@@ -535,11 +563,14 @@ if __name__ == "__main__":
     pointer = 0
     for i in range(0, len(onsets)-1):
         print(f"\r{i}/{len(onsets)-1}", end="")
+
+        # define the start/end intervals of this segment (these intervals may/may not exist in the data)
         interval_start = onsets[i]
         interval_end = onsets[i+1]
         
         timestamps_in_interval = []
 
+        # find any timestamps that DO exist in the data that fall between these intervals
         while timestamps[pointer] >= interval_start and timestamps[pointer] <= interval_end:
             timestamps_in_interval.append(timestamps[pointer])
             pointer += 1

@@ -35,7 +35,7 @@ I would recommend running on an Ubuntu/Debian based OS, with at least Python 3.8
 - Example usage: "./ax-collator -i "../subject_data/taVNS003/taVNS003_46902_0000000003.cwa" -o "../subject_data/taVNS003/AX3_taVNS003.csv" (run this inside the folder "axivity-ax3-collator")
 - compared to the AX3 CSV's available on the OneDrive, this script will produce a CSV with temp/light values (not just accel), and timestamps in the same format as the vitalpatch.
     - ENSURE to use the correct output ax3 .csv filename (as specified by the subject mapping json file) when running the ax3 C++ script, and that it is placed in the correct location.
-- I'm not sure that I have the light scaling correct in this script - I used the formula provided, but it seems a bit high. Please let me know if this is the case.
+- I'm not sure that I have the light values correct in this script - I used the formula provided, but it seems a bit high. Please let me know if this is the case.
 
 ##### EXTRACT AND MERGE DATA
 - This script will load the ECG, Vitals .csv's and the AX3 .csv produced in the last stage, and merge them using the timestamp column.
@@ -46,6 +46,11 @@ I would recommend running on an Ubuntu/Debian based OS, with at least Python 3.8
 - This will load the merged .csv (only the ECG column)
     - This could be modified to just load the vitalpatch ecg .csv (see how this is loaded in extract_and_merge_data.py to do so)
 1. Break the ECG into n-minute long segments (by default, 5min)
+    - Going from the first timestamp in the data, a list of segment intervals/onsets are produced; take a timestamp, determine what the timestamp 5 minutes after this timestamp would be.
+    - So, timestamps in this list may/may not actually be in the data.
+    - To work out the timestamps in each 5 min segment that are actually in the data, take 2 successive onset timestamps, and find timestamps in the data between these 2 values.
+    - So due to different sample rates between different metrics, there may be a slightly different number of readings in each segment.
+        - But, for example, if you only take readings of a particular metric (e.g ECG) in each segment, the number readings per segment should be fairly similar.
 2. For each segment:
     - Use Empirical Mode Decomposition (EMD) to remove low-frequency drif from/straighten-out the signal, intended to help the R peak detection algorithm.
     - Use an R peak detection algorithm provided by *biosppy* (I'm currently using EngZee, but many others are available - Christov & Hamilton's also look good)
@@ -69,6 +74,7 @@ I would recommend running on an Ubuntu/Debian based OS, with at least Python 3.8
 3. NaN Exit Conditions
     - There are some cases where we would want to discard a segment from HRV calculation. I've done this by setting the HRV Time/Freq value as NaN for certain segments, rather than a dictionary of HRV metrics.
     - The following are the current conditions for this, and are fairly arbitrary:
+        - If, for whatever reason, there was not enough ECG readings occured in the segment interval (lost data due to recording issues)
         - The segmenter algorithms (multiple are tried in case of a fault in any particular one) didn't give an R Peak count above the *minimum*.
         - All R Peaks were determined to be associated with noise.
         - If more than 40% of all R Peaks were determined to be associated with noise.
