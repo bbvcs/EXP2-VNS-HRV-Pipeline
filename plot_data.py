@@ -205,7 +205,7 @@ if __name__ == "__main__":
     axs[0].set_xlabel("Time")
     axs[0].set_ylabel("LF/HF Ratio")
     axs[0].set_xlim([min(hrv_timestamps_formatted), max(hrv_timestamps_formatted)])
-    axs[0].set_title(f"VNS EXP2 LF/HF Ratio for Subject {subject}")
+    axs[0].set_title(f"VNS EXP2 {FUNC_PROPERTY_DESC} for Subject {subject}")
 
     legend_without_duplicate_labels(axs[0], fontsize="x-small")
     
