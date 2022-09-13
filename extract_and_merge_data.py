@@ -41,7 +41,7 @@ if __name__ == "__main__":
         subject_to_files = json.load(sm)
 
 
-    subject_dir = f"subject_data/{subject}"
+    subject_dir = f"subject_data/{subject}/"
 
     ecg_filename = subject_dir + subject_to_files[subject][0]
     vitals_filename = subject_dir + subject_to_files[subject][1] 

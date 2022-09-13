@@ -7,7 +7,7 @@ I would recommend running on an Ubuntu/Debian based OS, with at least Python 3.8
 3. Ensure all files/folders are in the correct structure as shown in the diagram.
     - Please create 2 folders "subject_data" and "saved_plots" in this directory. 
     - For each subject, create a folder in "subject_data" with the study ID, for example "subject_data/taVNS003"
-4. Pipeline Usage:
+4. Pipeline Usage Overview:
     - Convert the AX3 .cwa to a .csv file.
     - Before running any python scripts, ensure you have ran "pipenv shell"; this puts you in a virtual environment, with all the necessary modules/libraries available.
     - There is a "subject" variable at the top of each python script - change this depending on the subject you're running it over. 
@@ -32,7 +32,7 @@ I would recommend running on an Ubuntu/Debian based OS, with at least Python 3.8
 
 ##### AX3 COLLATOR
 - A simple C++ command line tool designed to read Light, Temperature and Accelerometry (Gyro on AX6 and Gyro/Mag on AX9 should work also) data from Axivity AX-Series Data Logger .CWA file and merge into a single .CSV file.
-- Example usage: "./ax-collator -i "subject_data/taVNS003/taVNS003_46902_0000000003.cwa" -o "subject_data/taVNS003/AX3_taVNS003.csv"
+- Example usage: "./ax-collator -i "../subject_data/taVNS003/taVNS003_46902_0000000003.cwa" -o "../subject_data/taVNS003/AX3_taVNS003.csv" (run this inside the folder "axivity-ax3-collator")
 - compared to the AX3 CSV's available on the OneDrive, this script will produce a CSV with temp/light values (not just accel), and timestamps in the same format as the vitalpatch.
     - ENSURE to use the correct output ax3 .csv filename (as specified by the subject mapping json file) when running the ax3 C++ script, and that it is placed in the correct location.
 - I'm not sure that I have the light scaling correct in this script - I used the formula provided, but it seems a bit high. Please let me know if this is the case.
