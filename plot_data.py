@@ -84,7 +84,7 @@ if __name__ == "__main__":
     time_dom_df = pd.read_csv(f"{subject_dir}/{subject}_TIMEDOM.csv")
 
 
-    # TODO remove this later, temporary fix, shouldn't be a problem next time the hrv df are made
+    # timestamp is used as the index column, so has label "Unnamed: 0"
     freq_dom_df = freq_dom_df.rename(columns={"Unnamed: 0" : "timestamp"})
     time_dom_df = time_dom_df.rename(columns={"Unnamed: 0" : "timestamp"})
 
@@ -104,8 +104,10 @@ if __name__ == "__main__":
 #        if i % np.floor(len(all_timestamps) / 100) == 0:            
 #            print(f"{i / np.floor(len(all_timestamps) / 100)}%")
 
-    # Formatting HRV Timestamps doesn't take long though
+    # Formatting only HRV Timestamps doesn't take long though
     hrv_timestamps_formatted = np.vectorize(convert_unixtime_ms_to_datetime)(hrv_timestamps) # timestamps in HRV Dataframes represent the starting time of each 5 min segment 
+
+
 
     basic_id = pd.read_excel("EXP2_data_summary.xlsx", sheet_name="Ex2 Basic ID") # Contains study start/end dates
     stimulation_times = pd.read_excel("EXP2_data_summary.xlsx", sheet_name="Ex2 Stimulation") # Contains times of VNS

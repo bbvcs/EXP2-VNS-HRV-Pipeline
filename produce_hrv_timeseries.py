@@ -12,7 +12,7 @@ import math
 
 import emd
 
-
+import time
 
 def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
 
@@ -29,8 +29,7 @@ def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
 
             return idx
 
-    # produce dataframe w/ cols (timestamp representing start of 5min segment, hrv analysis metrics for that 5 min segment ...))
-    
+    # produce dataframe w/ cols (timestamp representing start of 5min segment, hrv analysis metrics for that 5 min segment ...)) 
     freq_dom_hrv = []
     time_dom_hrv = []
 
@@ -41,11 +40,11 @@ def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
     # to keep track of the "relative" number of RRI that have been interpolated, and their durations
     modification_report_list = [] 
 
-    print("REMOVE TESTING #1")
-    TESTING_MEAN = []
-    TESTING_STD = []
-    TESTING_2M = []
-    TESTING_NOPEAKS = []
+    #print("REMOVE TESTING #1")
+    #TESTING_MEAN = []
+    #TESTING_STD = []
+    #TESTING_2M = []
+    #TESTING_NOPEAKS = []
 
 
     for i in range(0, len(segments)):
@@ -66,6 +65,8 @@ def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
         if v:
             print(f"\r{i}/{len(segments)-1}", end="")
 
+
+        # <EXIT_CONDITION>
         # may get the case that no timestamps were found in the data for a segment interval
         # the number found can vary, I assume due to recording issues
         # so if there isn't even enough samples to make 2min (minimum for LF), exit early
@@ -81,8 +82,11 @@ def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
             modification_report_list.append(modification_report)
 
             continue
+        # </EXIT_CONDITION>
+
             
-        # get the section of the DF between the first timestamp found within this segment interval, and the last
+
+        # to get segment, get the section of the DF between the first timestamp found within this segment interval, and the last
         segment = df[(df["timestamp"] >= segment_interval[0]) & (df["timestamp"] <= segment_interval[-1])]
 
         segment_labels.append(segment_interval[0]) # use first timestamp of 5min interval as label for segment
@@ -94,6 +98,7 @@ def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
         ecg_timestamps = segment["timestamp"].to_numpy()[non_NaN_idx] # also remove timestamps corresponding to ECG NaN's 
 
 
+        # <EXIT_CONDITION>
         # if there isn't enough data in the segment AFTER we remove the NaNs (so looking only at ECG)
         if len(ecg) < ecg_srate * (60 * 2):
 
@@ -106,12 +111,11 @@ def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
             modification_report_list.append(modification_report)
 
             continue
+        # </EXIT_CONDITION>
+
 
 
         timevec = np.cumsum(np.concatenate(([0], np.diff(ecg_timestamps)))) # 0 -> ~300,000 (time in ms)
-
-
-        
 
 
         """ Apply Empirical Mode Decomposition (EMD) to detrend the ECG Signal (remove low freq drift) """
@@ -140,7 +144,7 @@ def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
         # get rpeak locations, using a "segmenter algorithm" (algorithm to detect R peaks in ECG)
         rpeaks = biosppy.signals.ecg.engzee_segmenter(signal=ecg_reflected, sampling_rate=ecg_srate)["rpeaks"]
         # NOTE: biosppy provides other segmenters. method "biosppy.signals.ecg.ecg()" uses the hamilton segmenter.
-        # christov and hamilton are likely valid alternatives to engzee segmenter, but I haven't thoroughly tested
+        # christov and hamilton are likely valid alternatives to engzee segmenter, but I haven't thoroughly tested.
         # others (e.g ssf and gamboa) didn't seem great
         
         # how many rpeaks should we expect the alg to detect for a reflected piece of ecg?
@@ -158,14 +162,15 @@ def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
 
                 rpeaks = biosppy.signals.ecg.christov_segmenter(signal=ecg_reflected, sampling_rate=ecg_srate)["rpeaks"]
                 
+                # <EXIT_CONDITION>
                 if len(rpeaks) < min_rpeaks_in_reflected:
                     
                     print("LEN RPEAKS (after segmenting) TOO LOW EARLY EXIT")
                     freq_dom_hrv.append(np.NaN)
                     time_dom_hrv.append(np.NaN)
 
-                    print("REMOVE TESTING #1.5")
-                    TESTING_NOPEAKS.append(i)
+                    #print("REMOVE TESTING #1.5")
+                    #TESTING_NOPEAKS.append(i)
 
                     # produce a report of what has been done to this segment
                     modification_report["seg_idx"] = i
@@ -175,9 +180,10 @@ def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
 
 
                     continue
+                # </EXIT_CONDITION>
 
 
-        # need to chop off the reflected parts before and after origianl signal
+        # need to chop off the reflected parts before and after original signal
         original_begins = reflection_order
         original_ends = original_begins + len(ecg)-1
 
@@ -213,7 +219,6 @@ def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
         # how many beats are too distant from the average
         noisy_beats_idx = np.where(beats_distance > QRS_MAX_DIST_THRESH)[0]
 
-        #### TODO if remove, also get rid of reference after RRI calc
         # get indices of longest consecutive run of valid rpeaks
         run_start = run_end = 0
         runs = [] # (start, end)
@@ -242,8 +247,10 @@ def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
                     run_end = j
                     runs.append((run_start, run_end))
                         
-        print(runs)
+        #print(runs)
         
+
+        # <EXIT_CONDITION>
         # discard as NaN if no valid rpeaks were found
         if len(runs) == 0:
 
@@ -257,6 +264,8 @@ def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
             modification_report_list.append(modification_report) 
 
             continue
+        # </EXIT_CONDITION>
+
 
         run_lengths = [np.abs(run[1] - run[0]) for run in runs] 
         longest_consecutive = runs[run_lengths.index(max(run_lengths))]
@@ -266,6 +275,8 @@ def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
         noisy_rpeaks = rpeaks[noisy_beats_idx] # keep a copy for plotting
         rpeaks = np.delete(rpeaks, noisy_beats_idx)
         
+
+        # <EXIT_CONDITION>
         # if too great a percentage were due to noise
         snr = len(noisy_beats_idx) / len(beats)
         if snr > 0.40:
@@ -280,9 +291,10 @@ def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
             modification_report_list.append(modification_report) 
 
             continue
-
+        # </EXIT_CONDITION>
 
        
+        # <EXIT_CONDITION>
         # if there isn't enough 
         if len(rpeaks) < min_rpeaks:
                     
@@ -290,8 +302,8 @@ def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
             freq_dom_hrv.append(np.NaN)
             time_dom_hrv.append(np.NaN)
 
-            print("REMOVE TESTING #1.5 (2)")
-            TESTING_NOPEAKS.append(i)
+            #print("REMOVE TESTING #1.5 (2)")
+            #TESTING_NOPEAKS.append(i)
 
             modification_report["seg_idx"] = i
             modification_report["excluded"] = True
@@ -300,18 +312,20 @@ def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
             modification_report_list.append(modification_report) 
 
             continue
+        # </EXIT_CONDITION>
 
 
         """ Calculate and correct R-R Intervals """
         
         rri = (np.diff(rpeaks) / ecg_srate) * 1000 # ms
 
-        # TODO not sure if this situ possible
-        print("REMOVE TESTING #2")
-        TESTING_MEAN.append(np.mean(beats_distance))
-        TESTING_STD.append(np.std(beats_distance))
+
+        # <EXIT_CONDITION> # TODO not sure if this situation is possible
+        #print("REMOVE TESTING #2")
+        #TESTING_MEAN.append(np.mean(beats_distance))
+        #TESTING_STD.append(np.std(beats_distance))
         if sum(rri) < (1000 * 60) * 2:
-            TESTING_2M.append(i)
+            #TESTING_2M.append(i)
 
             freq_dom_hrv.append(np.NaN)
             time_dom_hrv.append(np.NaN)
@@ -324,11 +338,14 @@ def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
             modification_report_list.append(modification_report) 
 
             continue
+        # </EXIT_CONDITION>
+        
 
+        # <EXIT_CONDITION>
         # if there is only a bit of noise, is there enough consecutive for LFHF?
         # i guess this covers spread? slightly
         # TODO surely we should only keep the longest consecutive
-            # - oo if it was e.g 3m 1m and 1m runs for example, pick only 3m? (use the 3m as the RRI for next)
+            # - if it was e.g 3m 1m and 1m runs for example, pick only 3m? (use the 3m as the RRI for next)
         if snr > 0.20:
             k = np.sum(rri[longest_consecutive[0]:longest_consecutive[1]])
 
@@ -344,6 +361,8 @@ def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
                 modification_report_list.append(modification_report) 
 
                 continue
+        # </EXIT_CONDITION>
+
 
 
         # Often RRI contain spikes, when algorithm error has resulted in a beat being missed/noise has mean extra beat detected
@@ -386,6 +405,7 @@ def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
             
             if rri[j] > MAX_RRI_MS or (diff > surrounding_mean * RRI_OUTLIER_PERCENTAGE_DIFF_THRESH):
                 suprathresh_idx.append(j)
+
 
         # do in reverse
         for j in np.flip(range(0, len(rri))):
@@ -473,17 +493,18 @@ def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
         try:
             time_dom_hrv.append(pyhrv.time_domain.time_domain(nni=rri_corrected, sampling_rate = ecg_srate, show=False, plot=False))
         except ZeroDivisionError: # temporary until bug fixed in sdnn_index()
-            modification_report_list[-1]["notes"] = "Zero Division Error (probably bug in sdnn_index())"
+            modification_report_list[-1]["notes"] = "Zero Division Error (probably bug in sdnn_index()), so time domain excluded."
             time_dom_hrv.append(np.NaN)
     
-    print("REMOVE TESTING #3")
-    print(TESTING_MEAN)
-    print(TESTING_STD)
-    print(TESTING_2M)
-    print(TESTING_NOPEAKS)
 
-    time_dom_df = pd.DataFrame(time_dom_hrv, index=segment_labels, columns=["timestamp"] + list(time_dom_hrv[0].keys()))
-    freq_dom_df = pd.DataFrame(freq_dom_hrv, index=segment_labels, columns=["timestamp"] + list(freq_dom_hrv[0].keys()))
+    #print("REMOVE TESTING #3")
+    #print(TESTING_MEAN)
+    #print(TESTING_STD)
+    #print(TESTING_2M)
+    #print(TESTING_NOPEAKS)
+
+    time_dom_df = pd.DataFrame(time_dom_hrv, index=segment_labels, columns=list(time_dom_hrv[0].keys()))
+    freq_dom_df = pd.DataFrame(freq_dom_hrv, index=segment_labels, columns=list(freq_dom_hrv[0].keys()))
 
     modification_report_df = pd.DataFrame({"segment_idx":   [i["seg_idx"] for i in modification_report_list], 
                             "excluded":                 [i["excluded"] for i in modification_report_list],
@@ -519,17 +540,13 @@ if __name__ == "__main__":
 
     ecg_srate = 125
 
+    START = time.time()
+
+
     print("Reading Merged Data ... ")
     merged_df = pd.read_csv(f"subject_data/{subject}/{subject}_AX3Vital_MERGED.csv", usecols = ["timestamp", "ecg"])
 
 
-
-
-
-    # ecg, vitals and ax3 data are over differing (but close) timescales with very different sample rates, so
-    # need to put both timestamp data on a timeline of all possible ms from the earliest to the latest time in either recording
-    #start = min(ecg_df["timestamp"].iloc[0], vitals_df["timestamp"].iloc[0], ax3_df["timestamp"].iloc[0])
-    #end = max(ecg_df["timestamp"].iloc[-1], vitals_df["timestamp"].iloc[-1], ax3_df["timestamp"].iloc[-1])
     start = merged_df["timestamp"].iloc[0]
     end = merged_df["timestamp"].iloc[-1]
 
@@ -548,15 +565,6 @@ if __name__ == "__main__":
 
     # create non-overlapping segments, and look for data occuring within these segment intervals (data is unevenly sampled)
     
-
-    # timestamps represent ms since the unix epoch
-    # we want to remove the ms within the starting timestamp, e.g change 3333333333647 (3333333333:647) to 3333333333000
-    #sstart = math.floor(start / 1000) * 1000
-    # we want to move the end timestamp to the beggining of the following timestamp, e.g
-    # e.g change 3333333333647 (3333333333:647) to 3333333334000
-    #eend = (math.floor(end / 1000) + 1) * 1000
-    # i.e, the previously defined start and end values would fall within the range of what we now have as start and end
-
     #timestamp is an int64, and is ms
     onsets = np.arange(start, end, window_length_ms)
 
@@ -585,7 +593,7 @@ if __name__ == "__main__":
      
     print("\n")
 
-
+    """
     check_segment_validity = False
     if check_segment_validity:
         print("Checking values collected in segments correspond to original timestamp list...") 
@@ -616,7 +624,7 @@ if __name__ == "__main__":
                     print(f"Values were not equal at ti = {ti}")
                     ti = len(timestamps) # exit condition
             si += 1
-
+    """
 
     
     # calculate HRV !
@@ -626,4 +634,5 @@ if __name__ == "__main__":
     freq_dom_df.to_csv(f"{subject_out_dir}/{subject}_FREQDOM.csv")
     modification_report_df.to_csv(f"{subject_out_dir}/{subject}_MODIFICATION_REPORT.csv")
 
-
+    END = time.time()
+    print(f"START: {START}, END: {END}, END-START: {END-START}")
