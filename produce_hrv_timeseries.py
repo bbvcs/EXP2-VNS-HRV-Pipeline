@@ -83,7 +83,7 @@ def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
 		
             segment_labels.append(np.NaN) # TODO temp
             
-	    continue
+            continue
         # </EXIT_CONDITION>
 
             
