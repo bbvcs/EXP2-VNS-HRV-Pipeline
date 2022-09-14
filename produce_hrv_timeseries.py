@@ -14,7 +14,7 @@ import emd
 
 import time
 
-def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
+def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=True):
 
     save_plots = True
     
@@ -49,8 +49,10 @@ def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
 
     for i in range(0, len(segments)):
         
-        
         segment_interval = segments[i]
+
+        #segment_labels.append(segment_interval[0]) # use first timestamp of 5min interval *found in data* as label for segment
+        segment_labels.append(segment_onsets[i]) # use exact start timestamp of the 5min segment (value which may not exist in data) in case no timestamps found in interval
 
         # keep a report of what happens to this to this segment
         modification_report = {}
@@ -81,7 +83,7 @@ def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
             modification_report["notes"] = "Not enough data recorded in this segment interval BEFORE NaN removed"
             modification_report_list.append(modification_report)
 		
-            segment_labels.append(np.NaN) # TODO temp
+           
             
             continue
         # </EXIT_CONDITION>
@@ -90,7 +92,7 @@ def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
 
         # to get segment, get the section of the DF between the first timestamp found within this segment interval, and the last
         segment = df[(df["timestamp"] >= segment_interval[0]) & (df["timestamp"] <= segment_interval[-1])]
-        segment_labels.append(segment_interval[0]) # use first timestamp of 5min interval as label for segment
+        
         
         ecg = segment["ecg"].to_numpy()
 
@@ -629,7 +631,7 @@ if __name__ == "__main__":
 
     
     # calculate HRV !
-    time_dom_df, freq_dom_df, modification_report_df = hrv_timeseries(merged_df, segments, ecg_srate=ecg_srate, segment_len_min = window_length_min)
+    time_dom_df, freq_dom_df, modification_report_df = hrv_timeseries(merged_df, segments, segment_onsets = onsets, ecg_srate=ecg_srate, segment_len_min = window_length_min)
 
     time_dom_df.to_csv(f"{subject_out_dir}/{subject}_TIMEDOM.csv")
     freq_dom_df.to_csv(f"{subject_out_dir}/{subject}_FREQDOM.csv")
