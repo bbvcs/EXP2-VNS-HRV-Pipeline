@@ -51,7 +51,6 @@ def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
         
         
         segment_interval = segments[i]
-        segment_labels.append(segment_interval[0]) # use first timestamp of 5min interval as label for segment
 
         # keep a report of what happens to this to this segment
         modification_report = {}
@@ -81,15 +80,17 @@ def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
             modification_report["excluded"] = True
             modification_report["notes"] = "Not enough data recorded in this segment interval BEFORE NaN removed"
             modification_report_list.append(modification_report)
-
-            continue
+		
+	    segment_labels.append(np.NaN) # TODO temp
+            
+	    continue
         # </EXIT_CONDITION>
 
             
 
         # to get segment, get the section of the DF between the first timestamp found within this segment interval, and the last
         segment = df[(df["timestamp"] >= segment_interval[0]) & (df["timestamp"] <= segment_interval[-1])]
-
+        segment_labels.append(segment_interval[0]) # use first timestamp of 5min interval as label for segment
         
         ecg = segment["ecg"].to_numpy()
 
