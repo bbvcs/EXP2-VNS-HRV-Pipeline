@@ -81,7 +81,7 @@ def hrv_timeseries(df, segments, ecg_srate, segment_len_min, v=True):
             modification_report["notes"] = "Not enough data recorded in this segment interval BEFORE NaN removed"
             modification_report_list.append(modification_report)
 		
-	    segment_labels.append(np.NaN) # TODO temp
+            segment_labels.append(np.NaN) # TODO temp
             
 	    continue
         # </EXIT_CONDITION>
