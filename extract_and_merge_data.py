@@ -31,17 +31,18 @@ def produce_timeseries(df, segments, column, function, v=True):
 
 if __name__ == "__main__":
 
-    subject = "taVNS003" 
-        
-
 
     save_merged_df = True
 
-    with open("subject_mapping.json") as sm:
-        subject_to_files = json.load(sm)
+    with open("setup.json") as setup:
+        setup_dict = json.load(setup)
+
+        subject = setup_dict["current_subject"]
+        all_subjects_dir = setup_dict["all_subjects_dir"]
+        subject_mapping = setup_dict["subject_mapping"]
 
 
-    subject_dir = f"subject_data/{subject}"
+    subject_dir = f"{all_subjects_dir}/{subject}"
 
     ecg_filename = f"{subject_dir}/{subject_to_files[subject][0]}"
     vitals_filename = f"{subject_dir}/{subject_to_files[subject][1]}" 

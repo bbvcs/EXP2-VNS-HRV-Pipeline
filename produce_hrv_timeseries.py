@@ -538,8 +538,15 @@ if __name__ == "__main__":
 
 
     # extract_and_merge.py must be ran prior to this
-    subject = "taVNS003"    
-    subject_out_dir = f"subject_data/{subject}"
+    with open("setup.json") as setup:
+        setup_dict = json.load(setup)
+
+        subject = setup_dict["current_subject"]
+        all_subjects_dir = setup_dict["all_subjects_dir"]
+        subject_mapping = setup_dict["subject_mapping"]
+
+
+    subject_dir = f"{all_subjects_dir}/{subject}"
 
     ecg_srate = 125
 
@@ -547,7 +554,7 @@ if __name__ == "__main__":
 
 
     print("Reading Merged Data ... ")
-    merged_df = pd.read_csv(f"subject_data/{subject}/{subject}_AX3Vital_MERGED.csv", usecols = ["timestamp", "ecg"])
+    merged_df = pd.read_csv(f"{subject_dir}/{subject}_AX3Vital_MERGED.csv", usecols = ["timestamp", "ecg"])
 
 
     start = merged_df["timestamp"].iloc[0]

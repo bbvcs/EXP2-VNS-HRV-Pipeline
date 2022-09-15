@@ -12,7 +12,7 @@ I would recommend running on an Ubuntu/Debian based OS, with at least Python 3.8
 4. Pipeline Usage Overview:
     - Convert the AX3 .cwa to a .csv file.
     - Before running any python scripts, ensure you have ran "pipenv shell"; this puts you in a virtual environment, with all the necessary modules/libraries available.
-    - There is a "subject" variable at the top of each python script - change this depending on the subject you're running it over. 
+    - Check setup.json; ensure the data directory is correct, and set the subject to use (e.g taVNS006).
     - Run `python3 extract_and_merge_data.py` to merge all the AX3 & Vitalpatch data into a single CSV.
     - Run `python3 produce_hrv_timeseries.py` to produce HRV Frequency & Time Domain Metrics CSVs. 
     - Run `python3 -i plot_data.py`. This loads the merged CSV and the HRV CSV's so that all data is available to be plotted/processed. Running in interactive mode (`-i`) means you can make any  matplotlib calls after all data has been loaded. 
@@ -24,13 +24,13 @@ I would recommend running on an Ubuntu/Debian based OS, with at least Python 3.8
 
 ### Files
 
-##### SUBJECT MAPPING
-- A JSON file, containing `study ID -> [ecg, vitals, ax3]` .csv filenames
-- Example entry: `"taVNS001": ["VC2B008BF_02CA07_ecgs.csv",  "VC2B008BF_02CA07_vitals.csv", "AX3_taVNS001.csv"]`
-- The ecg & vitals filenames are as they are in the data OneDrive, under Patch_data/output
-- All these files should be placed in the "subject_data" folder, under a folder for the subject ID (e.g "taVNS001")
-- The ax3 .csv files are produced by using a script (see step 1 and next step "**AX3 COLLATOR**")
-    
+##### SETUP .JSON
+- A JSON file, containing the current subject to use, the location on disk where all subjects are kept, and a mapping of `study ID -> [ecg, vitals, ax3]` .csv filenames
+- Example entry for subject mapping: `"taVNS001": ["VC2B008BF_02CA07_ecgs.csv",  "VC2B008BF_02CA07_vitals.csv", "AX3_taVNS001.csv"]`
+    - The ecg & vitals filenames are as they are in the data OneDrive, under Patch_data/output
+    - All these files should be placed in the "subject_data" folder, under a folder for the subject ID (e.g "taVNS001")
+    - The ax3 .csv files are produced by using a script (see step 1 and next step "**AX3 COLLATOR**")
+        
 
 ##### AX3 COLLATOR
 - "*A simple C++ command line tool designed to read Light, Temperature and Accelerometry (Gyro on AX6 and Gyro/Mag on AX9 should work also) data from Axivity AX-Series Data Logger .CWA file and merge into a single .CSV file*"
@@ -104,7 +104,6 @@ I would recommend running on an Ubuntu/Debian based OS, with at least Python 3.8
 - NOTE; if you're plotting frequency domain values where results are stored in a tuple per frequency band (e.g `fft_log`), this script has a function `convert_pyHRV_freqdom_tuplestr_to_tuple()` which will allow you to access these values. For instance, an `fft_log` entry looks like: `"(8.90, 5.93, 5.23)"`; while it looks like a tuple, it is actually a string. This method will convert it into a usable tuple. 
 
 ##### MISC
-- You can set the subject used in each of the Python scripts, by changing the "subject" variable at the top of the "if __name__ == '__main__':" section.
 - Plots of the ECG segments, the corresponding HRV signal, and corrections made to both of these, are saved to the "saved_plots" directory. Currently this is only segments that are not excluded (NaN Exit Conditions)
 
 ##### FUTURE WORK (also see presentation)

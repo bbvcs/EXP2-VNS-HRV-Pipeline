@@ -1,8 +1,0 @@
-{
-"taVNS001": ["VC2B008BF_02CA07_ecgs.csv",  "VC2B008BF_02CA07_vitals.csv", "AX3_taVNS001.csv"],
-"taVNS002": ["VC2B008BF_02CA08_ecgs.csv",  "VC2B008BF_02CA08_vitals.csv", "AX3_taVNS002.csv"],
-"taVNS003": ["VC2B008BF_02C27F_ecgs.csv", "VC2B008BF_02C27F_vitals.csv", "AX3_taVNS003.csv"],
-"taVNS004": ["VC2B008BF_02BE13_ecgs.csv",  "VC2B008BF_02BE13_vitals.csv", "AX3_taVNS004.csv"],
-"taVNS005": ["VC2B008BF_02CA10_ecgs.csv",  "VC2B008BF_02CA10_vitals.csv", "AX3_taVNS005.csv"],
-"taVNS006": ["VC2B008BF_02BE11_ecgs.csv", "VC2B008BF_02BE11_vitals.csv", "AX3_taVNS006.csv"]
-}

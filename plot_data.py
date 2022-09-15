@@ -68,11 +68,15 @@ def legend_without_duplicate_labels(ax, **kwargs):
 if __name__ == "__main__":
 
 
-    with open("subject_mapping.json") as sm:
-        subject_to_files = json.load(sm)
+    with open("setup.json") as setup:
+        setup_dict = json.load(setup)
 
-    subject = "taVNS003"    
-    subject_dir = f"subject_data/{subject}"
+        subject = setup_dict["current_subject"]
+        all_subjects_dir = setup_dict["all_subjects_dir"]
+        subject_mapping = setup_dict["subject_mapping"]
+
+
+    subject_dir = f"{all_subjects_dir}/{subject}"
 
     print("Reading Merged AX3/Vitalpatch Data ...")
     merged_df = pd.read_csv(f"{subject_dir}/{subject}_AX3Vital_MERGED.csv")
@@ -229,7 +233,7 @@ if __name__ == "__main__":
 
     # should be 1280x720 (720p)
     fig.set_size_inches(12.80, 7.2)
-    fig.savefig("plot_data_out", dpi=100)
+    fig.savefig(f"{subject}_plot_data_out", dpi=100)
 
 
     # some examples of plotting the data interactively:
