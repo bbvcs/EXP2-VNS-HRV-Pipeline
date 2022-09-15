@@ -44,9 +44,9 @@ if __name__ == "__main__":
 
     subject_dir = f"{all_subjects_dir}/{subject}"
 
-    ecg_filename = f"{subject_dir}/{subject_to_files[subject][0]}"
-    vitals_filename = f"{subject_dir}/{subject_to_files[subject][1]}" 
-    ax3_filename = f"{subject_dir}/{subject_to_files[subject][2]}"
+    ecg_filename = f"{subject_dir}/{subject_mapping[subject][0]}"
+    vitals_filename = f"{subject_dir}/{subject_mapping[subject][1]}" 
+    ax3_filename = f"{subject_dir}/{subject_mapping[subject][2]}"
 
 
     print("Gathering Vitalpatch ECG Data...")
