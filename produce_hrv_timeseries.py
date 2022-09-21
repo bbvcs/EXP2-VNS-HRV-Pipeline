@@ -639,9 +639,9 @@ if __name__ == "__main__":
     # calculate HRV !
     time_dom_df, freq_dom_df, modification_report_df = hrv_timeseries(merged_df, segments, segment_onsets = onsets, ecg_srate=ecg_srate, segment_len_min = window_length_min)
 
-    time_dom_df.to_csv(f"{subject_out_dir}/{subject}_TIMEDOM.csv")
-    freq_dom_df.to_csv(f"{subject_out_dir}/{subject}_FREQDOM.csv")
-    modification_report_df.to_csv(f"{subject_out_dir}/{subject}_MODIFICATION_REPORT.csv")
+    time_dom_df.to_csv(f"{subject_dir}/{subject}_TIMEDOM.csv")
+    freq_dom_df.to_csv(f"{subject_dir}/{subject}_FREQDOM.csv")
+    modification_report_df.to_csv(f"{subject_dir}/{subject}_MODIFICATION_REPORT.csv")
 
     END = time.time()
     print(f"START: {START}, END: {END}, END-START: {END-START}")
