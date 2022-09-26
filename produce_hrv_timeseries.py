@@ -55,7 +55,7 @@ def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=T
 
         # keep a report of what happens to this to this segment
         modification_report = {}
-        modification_report["seg_idx"] = np.NaN
+        modification_report["seg_idx"] = i
         modification_report["excluded"] = False
         modification_report["n_rpeaks_noisy"] = np.NaN
         modification_report["n_RRI_detected"] = np.NaN 
@@ -77,13 +77,11 @@ def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=T
             freq_dom_hrv.append(np.NaN)
             time_dom_hrv.append(np.NaN)
 
-            modification_report["seg_idx"] = i
             modification_report["excluded"] = True
             modification_report["notes"] = "Not enough data recorded in this segment interval BEFORE NaN removed"
             modification_report_list.append(modification_report)
 		
            
-            
             continue
         # </EXIT_CONDITION>
 
@@ -107,7 +105,6 @@ def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=T
             freq_dom_hrv.append(np.NaN)
             time_dom_hrv.append(np.NaN)
 
-            modification_report["seg_idx"] = i
             modification_report["excluded"] = True
             modification_report["notes"] = "Not enough data recorded in this segment interval AFTER NaN removed"
             modification_report_list.append(modification_report)
@@ -124,6 +121,21 @@ def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=T
 
         # perform EMD on the ecg, and take ecg as sum of IMFS 1-3; this is to remove low frequency drift from the signal, hopefully help R peak detection
         imfs = emd.sift.sift(ecg).T
+
+        # <EXIT_CONDITION>
+        # if not enough imfs can be detected (this can happen if the data is mostly zeros)
+        if len(imfs) < 3:
+
+            freq_dom_hrv.append(np.NaN)
+            time_dom_hrv.append(np.NaN)
+
+            modification_report["excluded"] = True
+            modification_report["notes"] = "Less than 3 IMFs were produced by EMD"
+            modification_report_list.append(modification_report)
+
+            continue
+        # </EXIT_CONDITION>
+
         ecg_emd = sum(imfs[[0, 1, 2]])
 
         if save_plots:
@@ -175,7 +187,6 @@ def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=T
                     #TESTING_NOPEAKS.append(i)
 
                     # produce a report of what has been done to this segment
-                    modification_report["seg_idx"] = i
                     modification_report["excluded"] = True
                     modification_report["notes"] = "Segmenter detected no Rpeaks"
                     modification_report_list.append(modification_report) 
@@ -259,7 +270,6 @@ def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=T
             freq_dom_hrv.append(np.NaN)
             time_dom_hrv.append(np.NaN)
 
-            modification_report["seg_idx"] = i
             modification_report["excluded"] = True
             modification_report["n_rpeaks_noisy"] = len(noisy_beats_idx)
             modification_report["notes"] = f"No runs detected - so likely signal was all noise."
@@ -286,7 +296,6 @@ def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=T
             freq_dom_hrv.append(np.NaN)
             time_dom_hrv.append(np.NaN)
 
-            modification_report["seg_idx"] = i
             modification_report["excluded"] = True
             modification_report["n_rpeaks_noisy"] = len(noisy_beats_idx)
             modification_report["notes"] = f"Noisy beats {snr}"
@@ -307,7 +316,6 @@ def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=T
             #print("REMOVE TESTING #1.5 (2)")
             #TESTING_NOPEAKS.append(i)
 
-            modification_report["seg_idx"] = i
             modification_report["excluded"] = True
             modification_report["n_rpeaks_noisy"] = len(noisy_beats_idx)
             modification_report["notes"] = "No rpeaks left after noisy rpeaks removed"
@@ -332,7 +340,6 @@ def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=T
             freq_dom_hrv.append(np.NaN)
             time_dom_hrv.append(np.NaN)
 
-            modification_report["seg_idx"] = i
             modification_report["excluded"] = True
             modification_report["n_rpeaks_noisy"] = len(noisy_beats_idx)
             modification_report["n_RRI_detected"] = len(rri)
@@ -355,7 +362,6 @@ def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=T
                 freq_dom_hrv.append(np.NaN)
                 time_dom_hrv.append(np.NaN)
 
-                modification_report["seg_idx"] = i
                 modification_report["excluded"] = True
                 modification_report["n_rpeaks_noisy"] = len(noisy_beats_idx)
                 modification_report["n_RRI_detected"] = len(rri)
@@ -445,7 +451,6 @@ def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=T
         # interpolate points above threshold
         rri_corrected[suprathresh_idx] = np.interp(suprathresh_idx, rri_corrected_supra_idx_removed, rri_corrected_supra_removed)
 
-        modification_report["seg_idx"] = i
         modification_report["excluded"] = False
         modification_report["n_rpeaks_noisy"] = len(noisy_beats_idx)
         modification_report["n_RRI_detected"] = len(rri) # how many RRI were detected for the segment originally
