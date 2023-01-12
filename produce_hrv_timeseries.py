@@ -91,9 +91,9 @@ def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=T
         segment = df[(df["timestamp"] >= segment_interval[0]) & (df["timestamp"] <= segment_interval[-1])]
         
         
-        ecg = segment["ecg"].to_numpy()
+        ecg = segment["ecg"].to_numpy(dtype=np.float64)
 
-        non_NaN_idx = np.invert(np.isnan(ecg))
+        non_NaN_idx = np.invert(pd.isnull(ecg)) #np.isnan replaced with pd.isnull
         ecg = ecg[non_NaN_idx] # remove NaNs (samples of other properties in between ecg samples)
         ecg_timestamps = segment["timestamp"].to_numpy()[non_NaN_idx] # also remove timestamps corresponding to ECG NaN's 
 
