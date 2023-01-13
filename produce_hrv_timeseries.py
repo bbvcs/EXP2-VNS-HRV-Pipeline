@@ -47,7 +47,6 @@ def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=T
 
 
     for i in range(0, len(segments)):
-        
         segment_interval = segments[i]
 
         #segment_labels.append(segment_interval[0]) # use first timestamp of 5min interval *found in data* as label for segment
@@ -90,7 +89,10 @@ def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=T
         # to get segment, get the section of the DF between the first timestamp found within this segment interval, and the last
         segment = df[(df["timestamp"] >= segment_interval[0]) & (df["timestamp"] <= segment_interval[-1])]
         
-        
+        # replace values that cannot be converted to float with np.NaN
+        error_vals = ["-"]  # this was found in taVNS002
+        segment["ecg"] = segment["ecg"].replace(error_vals, np.NaN)        
+
         ecg = segment["ecg"].to_numpy(dtype=np.float64)
 
         non_NaN_idx = np.invert(pd.isnull(ecg)) #np.isnan replaced with pd.isnull
