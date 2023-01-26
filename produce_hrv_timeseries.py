@@ -512,8 +512,19 @@ def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=T
     #print(TESTING_2M)
     #print(TESTING_NOPEAKS)
 
-    time_dom_df = pd.DataFrame(time_dom_hrv, index=segment_labels, columns=list(time_dom_hrv[0].keys()))
-    freq_dom_df = pd.DataFrame(freq_dom_hrv, index=segment_labels, columns=list(freq_dom_hrv[0].keys()))
+
+    if not all(pd.isnull(time_dom_df)):
+	# get the index of a non-NaN entry (so we can take columns)
+        v = np.where(~pd.isnull(time_dom_hrv))[0][0]
+        time_dom_df = pd.DataFrame(time_dom_hrv, index=segment_labels, columns=list(time_dom_hrv[v].keys()))
+    else:
+        raise Exception("ALL time_dom_hrv are NaN!")
+
+    if not all(pd.isnull(freq_dom_df)):
+        v = np.where(~pd.isnull(freq_dom_hrv))[0][0]
+        freq_dom_df = pd.DataFrame(freq_dom_hrv, index=segment_labels, columns=list(freq_dom_hrv[v].keys()))
+    else:
+        raise Exception("ALL freq_dom_hrv are NaN!")
 
     modification_report_df = pd.DataFrame({"segment_idx":   [i["seg_idx"] for i in modification_report_list], 
                             "excluded":                 [i["excluded"] for i in modification_report_list],
