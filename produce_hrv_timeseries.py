@@ -513,15 +513,20 @@ def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=T
     #print(TESTING_NOPEAKS)
 
 
-    if not all(pd.isnull(time_dom_df)):
+    if not all(pd.isnull(time_dom_hrv)):
 	# get the index of a non-NaN entry (so we can take columns)
         v = np.where(~pd.isnull(time_dom_hrv))[0][0]
+        
+        # replace any NaNs with a list of NaNs the same shape as valid data
+        time_dom_hrv[time_dom_hrv == np.NaN] = np.full(shape=np.shape(time_dom_hrv[v]), fill_value=np.NaN)
+
         time_dom_df = pd.DataFrame(time_dom_hrv, index=segment_labels, columns=list(time_dom_hrv[v].keys()))
     else:
         raise Exception("ALL time_dom_hrv are NaN!")
 
-    if not all(pd.isnull(freq_dom_df)):
+    if not all(pd.isnull(freq_dom_hrv)):
         v = np.where(~pd.isnull(freq_dom_hrv))[0][0]
+        freq_dom_hrv[freq_dom_hrv == np.NaN] = np.full(shape=np.shape(freq_dom_hrv[v]), fill_value=np.NaN)
         freq_dom_df = pd.DataFrame(freq_dom_hrv, index=segment_labels, columns=list(freq_dom_hrv[v].keys()))
     else:
         raise Exception("ALL freq_dom_hrv are NaN!")
@@ -601,7 +606,8 @@ if __name__ == "__main__":
     # when we want the data for a timestamp in a segment, we can just go get it from df
     segments = []
     timestamps = merged_df["timestamp"].to_numpy()
-    pointer = 0
+    seg_start = 0
+    seg_end   = 0
     for i in range(0, len(onsets)-1):
         print(f"\r{i}/{len(onsets)-1}", end="")
 
@@ -609,13 +615,26 @@ if __name__ == "__main__":
         interval_start = onsets[i]
         interval_end = onsets[i+1]
         
-        timestamps_in_interval = []
+        #timestamps_in_interval = []
 
         # find any timestamps that DO exist in the data that fall between these intervals
-        while timestamps[pointer] >= interval_start and timestamps[pointer] <= interval_end:
-            timestamps_in_interval.append(timestamps[pointer])
-            pointer += 1
+        #while timestamps[pointer] >= interval_start and timestamps[pointer] <= interval_end:
+            #timestamps_in_interval.append(timestamps[pointer])
+    
+        
+        while timestamps[seg_start] < interval_start:
+            seg_start +=1
+    
+        seg_end = seg_start
 
+        while timestamps[seg_end] < interval_end:
+            seg_end +=1
+        
+        timestamps_in_interval = timestamps[seg_start:seg_end]	
+        
+        
+        #timestamps_in_interval = timestamps[(timestamps >= interval_start) & (timestamps < interval_end)]
+        
         segments.append(timestamps_in_interval)
      
     print("\n")
