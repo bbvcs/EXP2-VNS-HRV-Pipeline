@@ -518,7 +518,10 @@ def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=T
         v = np.where(~pd.isnull(time_dom_hrv))[0][0]
         
         # replace any NaNs with a list of NaNs the same shape as valid data
-        time_dom_hrv[time_dom_hrv == np.NaN] = np.full(shape=np.shape(time_dom_hrv[v]), fill_value=np.NaN)
+        nan_idx = np.where(pd.isnull(time_dom_hrv))[0] # get the idx of NaNs as list
+        nan_replacement = np.full(shape=np.shape(time_dom_hrv[v]), fill_value=np.NaN)
+        for nan in nan_idx:
+            time_dom_hrv[nan] = nan_replacement
 
         time_dom_df = pd.DataFrame(time_dom_hrv, index=segment_labels, columns=list(time_dom_hrv[v].keys()))
     else:
@@ -526,7 +529,12 @@ def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=T
 
     if not all(pd.isnull(freq_dom_hrv)):
         v = np.where(~pd.isnull(freq_dom_hrv))[0][0]
-        freq_dom_hrv[freq_dom_hrv == np.NaN] = np.full(shape=np.shape(freq_dom_hrv[v]), fill_value=np.NaN)
+        
+        nan_idx = np.where(pd.isnull(freq_dom_hrv))[0]
+        nan_replacement = np.full(shape=np.shape(freq_dom_hrv[v]), fill_value=np.NaN)
+        for nan in nan_idx:
+            freq_dom_hrv[nan] = nan_replacement
+        
         freq_dom_df = pd.DataFrame(freq_dom_hrv, index=segment_labels, columns=list(freq_dom_hrv[v].keys()))
     else:
         raise Exception("ALL freq_dom_hrv are NaN!")
