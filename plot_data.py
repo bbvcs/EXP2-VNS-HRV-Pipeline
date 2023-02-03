@@ -77,9 +77,10 @@ if __name__ == "__main__":
 
 
     subject_dir = f"{all_subjects_dir}/{subject}"
+    summary_spreadsheet = "EXP2_data_summary.xlsx"
 
-    print("Reading Merged AX3/Vitalpatch Data ...")
-    merged_df = pd.read_csv(f"{subject_dir}/{subject}_AX3Vital_MERGED.csv")
+    print("Reading TIMESTAMPS from Merged AX3/Vitalpatch Data ...")
+    merged_df = pd.read_csv(f"{subject_dir}/{subject}_AX3Vital_MERGED.csv", usecols=["timestamp"]) # if you want all of the merged data, remove usecols parameter
     
     print("Reading Frequency Domain HRV Metrics ...")
     freq_dom_df = pd.read_csv(f"{subject_dir}/{subject}_FREQDOM.csv") 
@@ -113,28 +114,68 @@ if __name__ == "__main__":
 
 
 
-    basic_id = pd.read_excel("EXP2_data_summary.xlsx", sheet_name="Ex2 Basic ID") # Contains study start/end dates
-    stimulation_times = pd.read_excel("EXP2_data_summary.xlsx", sheet_name="Ex2 Stimulation") # Contains times of VNS
+    basic_id = pd.read_excel(summary_spreadsheet, sheet_name="Ex2 Basic ID") # Contains study start/end dates
+    if not subject in list(basic_id["Study ID"]):
+        raise Exception(f"{subject} not found in {summary_spreadsheet} - do you have the most up-to-date copy?")
+
+    stimulation_times = pd.read_excel(summary_spreadsheet, sheet_name="Ex2 Stimulation") # Contains times of VNS
     joined_df = basic_id.merge(stimulation_times, how="outer", left_on="Study ID", right_on="Study ID", sort=True)
     
     # get subject info on start/end date and VNS times
     subject_df = joined_df[joined_df["Study ID"] == subject]
 
-    recording_start_day = datetime.datetime.strptime(subject_df["Data start"].iloc[0],  "%d/%m/%Y")
-    recording_end_day   = datetime.datetime.strptime(subject_df["Data end"].iloc[0],    "%d/%m/%Y")
-
+    """
+    recording_start_day = subject_df["Data start"].iloc[0]
+    recording_end_day   = subject_df["Data end"].iloc[0]
+    if isinstance(recording_start_day, str):
+        recording_start_day = datetime.datetime.strptime(subject_df["Data start"].iloc[0],  "%d/%m/%Y")
+    if isinstance(recording_end_day, str):
+        recording_end_day   = datetime.datetime.strptime(subject_df["Data end"].iloc[0],    "%d/%m/%Y")
+    
+    """
+    recording_start_day = hrv_timestamps_formatted[0].date()
+    recording_end_day = hrv_timestamps_formatted[-1].date()
+    
     # get AM/PM VNS times. ASSUMPTIONS; VNS starts the day after recording.
-    day_2_AM = datetime.datetime.combine(recording_start_day.date() + datetime.timedelta(days=1), subject_df["Day 2 AM"].iloc[0])
-    day_2_PM = datetime.datetime.combine(recording_start_day.date() + datetime.timedelta(days=1), subject_df["Day 2 PM"].iloc[0])
+    try:
+        #day_2_AM = datetime.datetime.combine(recording_start_day.date() + datetime.timedelta(days=1), subject_df["Day 2 AM"].iloc[0])
+        day_2_AM = datetime.datetime.combine(recording_start_day + datetime.timedelta(days=1), subject_df["Day 2 AM"].iloc[0])
+    except Exception:
+        day_2_AM = None    
+    try:
+        day_2_PM = datetime.datetime.combine(recording_start_day + datetime.timedelta(days=1), subject_df["Day 2 PM"].iloc[0])
+    except Exception:
+        day_2_PM = None  
 
-    day_3_AM = datetime.datetime.combine(recording_start_day.date() + datetime.timedelta(days=2), subject_df["Day 3 AM"].iloc[0])
-    day_3_PM = datetime.datetime.combine(recording_start_day.date() + datetime.timedelta(days=2), subject_df["Day 3 PM"].iloc[0])
+    try:
+        day_3_AM = datetime.datetime.combine(recording_start_day + datetime.timedelta(days=2), subject_df["Day 3 AM"].iloc[0])
+    except Exception:
+        day_3_AM = None    
+    try:
+        day_3_PM = datetime.datetime.combine(recording_start_day + datetime.timedelta(days=2), subject_df["Day 3 PM"].iloc[0])
+    except Exception:
+        day_3_PM = None 
 
-    day_5_AM = datetime.datetime.combine(recording_start_day.date() + datetime.timedelta(days=4), subject_df["Day 5 AM"].iloc[0])
-    day_5_PM = datetime.datetime.combine(recording_start_day.date() + datetime.timedelta(days=4), subject_df["Day 5 PM"].iloc[0])
 
-    day_6_AM = datetime.datetime.combine(recording_start_day.date() + datetime.timedelta(days=5), subject_df["Day 6 AM"].iloc[0])
-    day_6_PM = datetime.datetime.combine(recording_start_day.date() + datetime.timedelta(days=5), subject_df["Day 6 PM"].iloc[0])
+    try:
+        day_5_AM = datetime.datetime.combine(recording_start_day + datetime.timedelta(days=4), subject_df["Day 5 AM"].iloc[0])
+    except Exception:
+        day_5_AM = None    
+    try:
+        day_5_PM = datetime.datetime.combine(recording_start_day + datetime.timedelta(days=4), subject_df["Day 5 PM"].iloc[0])
+    except Exception:
+        day_5_PM = None 
+
+
+    try:
+        day_6_AM = datetime.datetime.combine(recording_start_day + datetime.timedelta(days=5), subject_df["Day 6 AM"].iloc[0])
+    except Exception:
+        day_6_AM = None    
+    try:
+        day_6_PM = datetime.datetime.combine(recording_start_day + datetime.timedelta(days=5), subject_df["Day 6 PM"].iloc[0])
+    except Exception:
+        day_6_PM = None 
+
 
 
     """ Produce Plot """
@@ -145,25 +186,50 @@ if __name__ == "__main__":
     DF = freq_dom_df
 
     # for each property, call FUNC over the property (e.g np.mean over the LF/HF Ratio in this period)
-    day_2_AM_value = FUNC(DF[PROPERTY]
-        .iloc[find_nearest(hrv_timestamps_formatted, day_2_AM):find_nearest(hrv_timestamps_formatted, day_2_AM + datetime.timedelta(hours=1))])
-    day_2_PM_value = FUNC(DF[PROPERTY]
-        .iloc[find_nearest(hrv_timestamps_formatted, day_2_PM):find_nearest(hrv_timestamps_formatted, day_2_PM + datetime.timedelta(hours=1))])
+    try:
+        day_2_AM_value = FUNC(DF[PROPERTY]
+            .iloc[find_nearest(hrv_timestamps_formatted, day_2_AM):find_nearest(hrv_timestamps_formatted, day_2_AM + datetime.timedelta(hours=1))])
+    except Exception:
+        day_2_AM_value = None
+    try:
+        day_2_PM_value = FUNC(DF[PROPERTY]
+            .iloc[find_nearest(hrv_timestamps_formatted, day_2_PM):find_nearest(hrv_timestamps_formatted, day_2_PM + datetime.timedelta(hours=1))])
+    except Exception:
+        day_2_PM_value = None        
 
-    day_3_AM_value = FUNC(DF[PROPERTY]
-        .iloc[find_nearest(hrv_timestamps_formatted, day_3_AM):find_nearest(hrv_timestamps_formatted, day_3_AM + datetime.timedelta(hours=1))])
-    day_3_PM_value = FUNC(DF[PROPERTY]
-        .iloc[find_nearest(hrv_timestamps_formatted, day_3_PM):find_nearest(hrv_timestamps_formatted, day_3_PM + datetime.timedelta(hours=1))])
 
-    day_5_AM_value = FUNC(DF[PROPERTY]
-        .iloc[find_nearest(hrv_timestamps_formatted, day_5_AM):find_nearest(hrv_timestamps_formatted, day_5_AM + datetime.timedelta(hours=1))])
-    day_5_PM_value = FUNC(DF[PROPERTY]
-        .iloc[find_nearest(hrv_timestamps_formatted, day_5_PM):find_nearest(hrv_timestamps_formatted, day_5_PM + datetime.timedelta(hours=1))])
+    try:
+        day_3_AM_value = FUNC(DF[PROPERTY]
+            .iloc[find_nearest(hrv_timestamps_formatted, day_3_AM):find_nearest(hrv_timestamps_formatted, day_3_AM + datetime.timedelta(hours=1))])
+    except Exception:
+        day_3_AM_value = None
+    try:
+        day_3_PM_value = FUNC(DF[PROPERTY]
+            .iloc[find_nearest(hrv_timestamps_formatted, day_3_PM):find_nearest(hrv_timestamps_formatted, day_3_PM + datetime.timedelta(hours=1))])
+    except Exception:
+        day_3_PM_value = None 
 
-    day_6_AM_value = FUNC(DF[PROPERTY]
-        .iloc[find_nearest(hrv_timestamps_formatted, day_6_AM):find_nearest(hrv_timestamps_formatted, day_6_AM + datetime.timedelta(hours=1))])
-    day_6_PM_value = FUNC(DF[PROPERTY]
-        .iloc[find_nearest(hrv_timestamps_formatted, day_6_PM):find_nearest(hrv_timestamps_formatted, day_6_PM + datetime.timedelta(hours=1))])
+    try:
+        day_5_AM_value = FUNC(DF[PROPERTY]
+            .iloc[find_nearest(hrv_timestamps_formatted, day_5_AM):find_nearest(hrv_timestamps_formatted, day_5_AM + datetime.timedelta(hours=1))])
+    except Exception:
+        day_5_AM_value = None
+    try:
+        day_5_PM_value = FUNC(DF[PROPERTY]
+            .iloc[find_nearest(hrv_timestamps_formatted, day_5_PM):find_nearest(hrv_timestamps_formatted, day_5_PM + datetime.timedelta(hours=1))])
+    except Exception:
+        day_5_PM_value = None 
+
+    try:
+        day_6_AM_value = FUNC(DF[PROPERTY]
+            .iloc[find_nearest(hrv_timestamps_formatted, day_6_AM):find_nearest(hrv_timestamps_formatted, day_6_AM + datetime.timedelta(hours=1))])
+    except Exception:
+        day_6_AM_value = None
+    try:
+        day_6_PM_value = FUNC(DF[PROPERTY]
+            .iloc[find_nearest(hrv_timestamps_formatted, day_6_PM):find_nearest(hrv_timestamps_formatted, day_6_PM + datetime.timedelta(hours=1))])
+    except Exception:
+        day_6_PM_value = None 
 
     
     if (subject_df["Round 1 (Day 2 + 3)"].iloc[0] == "Active") and (subject_df["Round 2 (Day 5 + 6)"].iloc[0] == "Sham"):
@@ -182,30 +248,30 @@ if __name__ == "__main__":
 
 
     fig, axs = plt.subplots(2, 1)
-    axs[0].plot(hrv_timestamps_formatted, freq_dom_df["fft_ratio"])
+    axs[0].plot(hrv_timestamps_formatted, DF[PROPERTY])
 
-    axs[0].axvspan(day_2_AM, day_2_AM+datetime.timedelta(hours=1), label=round_1_label, color=round_1_color)
-    axs[0].axvspan(day_2_PM, day_2_PM+datetime.timedelta(hours=1), label=round_1_label, color=round_1_color)
-    axs[0].axvspan(day_3_AM, day_3_AM+datetime.timedelta(hours=1), label=round_1_label, color=round_1_color)
-    axs[0].axvspan(day_3_PM, day_3_PM+datetime.timedelta(hours=1), label=round_1_label, color=round_1_color)
+    if day_2_AM: axs[0].axvspan(day_2_AM, day_2_AM+datetime.timedelta(hours=1), label=round_1_label, color=round_1_color)
+    if day_2_PM: axs[0].axvspan(day_2_PM, day_2_PM+datetime.timedelta(hours=1), label=round_1_label, color=round_1_color)
+    if day_3_AM: axs[0].axvspan(day_3_AM, day_3_AM+datetime.timedelta(hours=1), label=round_1_label, color=round_1_color)
+    if day_3_PM: axs[0].axvspan(day_3_PM, day_3_PM+datetime.timedelta(hours=1), label=round_1_label, color=round_1_color)
 
-    axs[0].axvspan(day_5_AM, day_5_AM+datetime.timedelta(hours=1), label=round_2_label, color=round_2_color)
-    axs[0].axvspan(day_5_PM, day_5_PM+datetime.timedelta(hours=1), label=round_2_label, color=round_2_color)
-    axs[0].axvspan(day_6_AM, day_6_AM+datetime.timedelta(hours=1), label=round_2_label, color=round_2_color)
-    axs[0].axvspan(day_6_PM, day_6_PM+datetime.timedelta(hours=1), label=round_2_label, color=round_2_color)
+    if day_5_AM: axs[0].axvspan(day_5_AM, day_5_AM+datetime.timedelta(hours=1), label=round_2_label, color=round_2_color)
+    if day_5_PM: axs[0].axvspan(day_5_PM, day_5_PM+datetime.timedelta(hours=1), label=round_2_label, color=round_2_color)
+    if day_6_AM: axs[0].axvspan(day_6_AM, day_6_AM+datetime.timedelta(hours=1), label=round_2_label, color=round_2_color)
+    if day_6_PM: axs[0].axvspan(day_6_PM, day_6_PM+datetime.timedelta(hours=1), label=round_2_label, color=round_2_color)
 
-    TEXT_Y = max(DF[PROPERTY]) - 10
+    TEXT_Y = np.nanmax(DF[PROPERTY]) - 10
     TEXT_SIZE = "small"
     TEXT_ROTATION = 90
     TEXT_N_DP = 2
-    axs[0].text(day_2_AM, TEXT_Y, round(day_2_AM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
-    axs[0].text(day_2_PM, TEXT_Y, round(day_2_PM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
-    axs[0].text(day_3_AM, TEXT_Y, round(day_3_AM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
-    axs[0].text(day_3_PM, TEXT_Y, round(day_3_PM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
-    axs[0].text(day_5_AM, TEXT_Y, round(day_5_AM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
-    axs[0].text(day_5_PM, TEXT_Y, round(day_5_PM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
-    axs[0].text(day_6_AM, TEXT_Y, round(day_6_AM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
-    axs[0].text(day_6_PM, TEXT_Y, round(day_6_PM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
+    if day_2_AM: axs[0].text(day_2_AM, TEXT_Y, round(day_2_AM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
+    if day_2_PM: axs[0].text(day_2_PM, TEXT_Y, round(day_2_PM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
+    if day_3_AM: axs[0].text(day_3_AM, TEXT_Y, round(day_3_AM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
+    if day_3_PM: axs[0].text(day_3_PM, TEXT_Y, round(day_3_PM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
+    if day_5_AM: axs[0].text(day_5_AM, TEXT_Y, round(day_5_AM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
+    if day_5_PM: axs[0].text(day_5_PM, TEXT_Y, round(day_5_PM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
+    if day_6_AM: axs[0].text(day_6_AM, TEXT_Y, round(day_6_AM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
+    if day_6_PM: axs[0].text(day_6_PM, TEXT_Y, round(day_6_PM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
     
 
     axs[0].set_xlabel("Time")
