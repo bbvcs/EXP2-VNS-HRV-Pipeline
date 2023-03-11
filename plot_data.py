@@ -250,6 +250,7 @@ if __name__ == "__main__":
     fig, axs = plt.subplots(2, 1)
     axs[0].plot(hrv_timestamps_formatted, DF[PROPERTY])
 
+    # plot color bars representing hour of activity
     if day_2_AM: axs[0].axvspan(day_2_AM, day_2_AM+datetime.timedelta(hours=1), label=round_1_label, color=round_1_color)
     if day_2_PM: axs[0].axvspan(day_2_PM, day_2_PM+datetime.timedelta(hours=1), label=round_1_label, color=round_1_color)
     if day_3_AM: axs[0].axvspan(day_3_AM, day_3_AM+datetime.timedelta(hours=1), label=round_1_label, color=round_1_color)
@@ -260,6 +261,12 @@ if __name__ == "__main__":
     if day_6_AM: axs[0].axvspan(day_6_AM, day_6_AM+datetime.timedelta(hours=1), label=round_2_label, color=round_2_color)
     if day_6_PM: axs[0].axvspan(day_6_PM, day_6_PM+datetime.timedelta(hours=1), label=round_2_label, color=round_2_color)
 
+    # plot the baseline hour color bar (assuming this is first hour of recording)
+    baseline_color = "darkorange"
+    axs[0].axvspan(hrv_timestamps_formatted[0], hrv_timestamps_formatted[0]+datetime.timedelta(hours=1), label="Baseline", color=baseline_color)
+    baseline_value = FUNC(DF[PROPERTY].iloc[0:find_nearest(hrv_timestamps_formatted, hrv_timestamps_formatted[0] + datetime.timedelta(hours=1))])
+
+    # add value as label inside color bar
     TEXT_Y = np.nanmax(DF[PROPERTY]) - 10
     TEXT_SIZE = "small"
     TEXT_ROTATION = 90
@@ -272,7 +279,10 @@ if __name__ == "__main__":
     if day_5_PM: axs[0].text(day_5_PM, TEXT_Y, round(day_5_PM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
     if day_6_AM: axs[0].text(day_6_AM, TEXT_Y, round(day_6_AM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
     if day_6_PM: axs[0].text(day_6_PM, TEXT_Y, round(day_6_PM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
-    
+    # add baseline value label
+    axs[0].text(hrv_timestamps_formatted[0], TEXT_Y, round(baseline_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)    
+
+
 
     axs[0].set_xlabel("Time")
     axs[0].set_ylabel("LF/HF Ratio")
@@ -281,19 +291,41 @@ if __name__ == "__main__":
 
     legend_without_duplicate_labels(axs[0], fontsize="x-small")
     
-    # scatter the values
-    axs[1].scatter(day_2_AM, day_2_AM_value, label=round_1_label, color=round_1_color)
-    axs[1].scatter(day_2_PM, day_2_PM_value, label=round_1_label, color=round_1_color)
-    axs[1].scatter(day_3_AM, day_3_AM_value, label=round_1_label, color=round_1_color)
-    axs[1].scatter(day_3_PM, day_3_PM_value, label=round_1_label, color=round_1_color)
 
-    axs[1].scatter(day_5_AM, day_5_AM_value, label=round_2_label, color=round_2_color)
-    axs[1].scatter(day_5_PM, day_5_PM_value, label=round_2_label, color=round_2_color)
-    axs[1].scatter(day_6_AM, day_6_AM_value, label=round_2_label, color=round_2_color)
-    axs[1].scatter(day_6_PM, day_6_PM_value, label=round_2_label, color=round_2_color)
+    # plot every hour
+    h = datetime.timedelta(hours=1)
+    hour_onsets = np.arange(hrv_timestamps_formatted[0], hrv_timestamps_formatted[-1], h, dtype=datetime.datetime)
+    hourly_values = np.zeros(shape=(len(hour_onsets)))
+    for i in range(len(hour_onsets)-1):
+        h_start = find_nearest(hrv_timestamps_formatted, hour_onsets[i])
+        h_end =  find_nearest(hrv_timestamps_formatted, hour_onsets[i+1])
+
+        hour_value = FUNC(DF[PROPERTY].iloc[h_start:h_end])
+
+        hourly_values[i] = hour_value
+
+        if i == 0:
+            # plot the baseline hour
+            axs[1].bar(hrv_timestamps_formatted[h_start] + h/2, hour_value, h, color=baseline_color)
+        else:
+            axs[1].bar(hrv_timestamps_formatted[h_start] + h/2, hour_value, h, color="gray")
+
+
+    # plot the hours where VNS was active  
+    alpha = 0.8
+
+    axs[1].bar(day_2_AM + h/2, day_2_AM_value, h, label=round_1_label, color=round_1_color, alpha=alpha)
+    axs[1].bar(day_2_PM + h/2, day_2_PM_value, h, label=round_1_label, color=round_1_color, alpha=alpha)
+    axs[1].bar(day_3_AM + h/2, day_3_AM_value, h, label=round_1_label, color=round_1_color, alpha=alpha)
+    axs[1].bar(day_3_PM + h/2, day_3_PM_value, h, label=round_1_label, color=round_1_color, alpha=alpha)
+
+    axs[1].bar(day_5_AM + h/2, day_5_AM_value, h, label=round_2_label, color=round_2_color, alpha=alpha)
+    axs[1].bar(day_5_PM + h/2, day_5_PM_value, h, label=round_2_label, color=round_2_color, alpha=alpha)
+    axs[1].bar(day_6_AM + h/2, day_6_AM_value, h, label=round_2_label, color=round_2_color, alpha=alpha)
+    axs[1].bar(day_6_PM + h/2, day_6_PM_value, h, label=round_2_label, color=round_2_color, alpha=alpha)
 
     axs[1].set_xlabel("Time")
-    axs[1].set_ylabel(FUNC_PROPERTY_DESC)
+    axs[1].set_ylabel(FUNC_PROPERTY_DESC + " (Hourly)")
     axs[1].set_xlim([min(hrv_timestamps_formatted), max(hrv_timestamps_formatted)])
 
 
