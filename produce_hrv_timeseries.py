@@ -13,6 +13,11 @@ import math
 import time
 import json
 
+from sklearn.cluster import DBSCAN, OPTICS
+from sklearn.preprocessing import StandardScaler
+from sklearn.neighbors import NearestNeighbors
+import seaborn as sns
+
 def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=True):
 
     save_plots = True
@@ -46,7 +51,7 @@ def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=T
     #TESTING_NOPEAKS = []
 
 
-    for i in range(0, len(segments)):
+    for i in range(0,len(segments)):
         segment_interval = segments[i]
 
         #segment_labels.append(segment_interval[0]) # use first timestamp of 5min interval *found in data* as label for segment
@@ -332,6 +337,63 @@ def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=T
         rri = (np.diff(rpeaks) / ecg_srate) * 1000 # ms
 
 
+
+        # TEMP: Poincare and clustering
+        fig2, ax2 = plt.subplots(1, 2)
+        mu, sigma = stats.norm.fit(rri)
+        points = np.linspace(stats.norm.ppf(0.01,loc=mu,scale=sigma), stats.norm.ppf(0.9999,loc=mu,scale=sigma),100)
+        pdf = stats.norm.pdf(points,loc=mu,scale=sigma)
+        ax2[0].hist(rri, len(rri)//10, density=True)
+        ax2[0].plot(points, pdf, color='g')
+        ax2[0].axvline(mu + (4 * sigma), color="r")
+
+
+        poincare = np.array([rri[:-1],rri[1:]], dtype=np.float32)
+        #poincare = StandardScaler().fit_transform(poincare.T) # set no scale, so can use ms epsilon that is constant across different data  
+
+        # DBSCAN clustering of poincare plot; outliers should be far from main cluster
+        #db = DBSCAN(eps=1.5, min_samples=100).fit(poincare)
+        #db = OPTICS(min_samples=100, max_eps=1.5, cluster_method="dbscan").fit(poincare) 
+        thresh = np.mean(rri) * 0.25
+        print(f"THRESH: {thresh}")
+        db = DBSCAN(eps=thresh, min_samples=100).fit(poincare.T)
+        labels = db.labels_
+
+        poincare=poincare.T
+        
+        poincare_outliers = np.zeros(len(rri))
+        for j in range(0, len(rri)):
+            if j == 0:
+                if labels[j] == -1:
+                    poincare_outliers[j] = 1                         
+
+            if j == len(rri)-1:
+               if labels[-1] == -1:
+                    poincare_outliers[j] = 1  
+                
+            # every RRI except first/last will have 2 poincare pairs associated
+                # one where it is the second point in the pair, and one where it is the first
+                # if there are BOTH marked as outliers, then this is likely a spike
+            else:
+                if (labels[j-1] == -1) and (labels[j] == -1):
+                    poincare_outliers[j] = 1
+
+        # plot non-scaled poincare                  
+        sns.scatterplot(x=rri[:-1], y=rri[1:], hue=labels, ax=ax2[1])
+        fig2.savefig(f"saved_plots/{subject}_{i}_HIST")
+
+        """        
+        fig3, ax3 = plt.subplots()
+        neighbors = NearestNeighbors(n_neighbors=15).fit(poincare.T)
+        distances, indices = neighbors.kneighbors(poincare.T)
+
+        distances = np.sort(distances, axis=0)
+        distances = distances[:,1]
+        ax3.plot(distances)
+        ax3.set_ylim(0, 1)
+        fig3.savefig(f"saved_plots/{subject}_{i}_ELBOW")
+        """
+
         # <EXIT_CONDITION> # TODO not sure if this situation is possible
         #print("REMOVE TESTING #2")
         #TESTING_MEAN.append(np.mean(beats_distance))
@@ -379,6 +441,7 @@ def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=T
         # These spikes must be removed as they will affect HRV metrics
         rri_corrected = np.copy(rri)
 
+        """
         # instead of TKEO to remove spikes, use approach inspired by:
         # https://www.hrv4training.com/blog/issues-in-heart-rate-variability-hrv-analysis-motion-artifacts-ectopic-beats
         #   - which said any RR intervals that differ 20-25% more than the previous
@@ -444,7 +507,8 @@ def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=T
 
         # remove duplicates and sort
         suprathresh_idx = sorted(set(suprathresh_idx))
-
+        """
+        suprathresh_idx = np.where(poincare_outliers == 1)[0]
         
         # produce a copy without the RRIs exceeding the threshold, for use in interpolation
         rri_corrected_supra_removed = np.delete(rri_corrected, suprathresh_idx)
@@ -469,8 +533,14 @@ def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=T
             if len(suprathresh_idx) > 0:
                 axs[1].plot(timevec[rpeaks][:-1], rri, c="dimgray", label="Pre-processed HRV")
                 axs[1].plot(timevec[rpeaks][:-1], rri_corrected, c="crimson", label="Processed HRV")
+
+                
+
             else:
                 axs[1].plot(timevec[rpeaks][:-1], rri, c="crimson", label="HRV")
+
+            # temp poincare
+            axs[1].scatter(timevec[rpeaks][:-1][np.where(poincare_outliers==1)], rri[np.where(poincare_outliers==1)], c="black", label="Poincare Outliers")
 
             axs[1].set_title(f"HRV Signal")
 
@@ -492,8 +562,8 @@ def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=T
             
             # save to image for inspection
             # should be 1280x720 (720p)
-            plt.gcf().set_size_inches(12.80, 7.2)
-            plt.savefig(f"saved_plots/{subject}_{i}", dpi=100)
+            fig.set_size_inches(12.80, 7.2)
+            fig.savefig(f"saved_plots/{subject}_{i}", dpi=100)
     
 
         """ Calculate HRV Metrics """
