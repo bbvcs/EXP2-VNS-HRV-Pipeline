@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy import stats, interpolate, signal
+from scipy.signal import butter, sosfiltfilt, sosfreqz
+
 
 import biosppy
 import pyhrv
@@ -12,12 +14,30 @@ import shelve
 import math
 import time
 import json
+import os
 
 from sklearn.cluster import DBSCAN, OPTICS
 from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import NearestNeighbors
 import seaborn as sns
 
+
+
+sys.path.append("/data/billy/VNS_2/")
+from hrv_preprocessor.hrv_preprocessor import hrv_per_segment, produce_hrv_dataframes, save_hrv_dataframes, load_hrv_dataframes, time_dom_keys, freq_dom_keys
+
+def butter_lowpass(cutoff, fs, order=5):
+        nyq = 0.5 * fs
+        normal_cutoff = cutoff / nyq
+        sos = butter(order, normal_cutoff, btype="low", analog=False,output="sos")
+        return sos
+
+def butter_lowpass_filter(data, cutoff, fs, order=5):
+        sos = butter_lowpass(cutoff, fs, order=order)
+        y = sosfiltfilt(sos, data)
+        return y
+
+# TODO remove this function
 def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=True):
 
     save_plots = True
@@ -336,7 +356,12 @@ def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=T
         
         rri = (np.diff(rpeaks) / ecg_srate) * 1000 # ms
 
-
+	# TEMP; raw RRI plot
+        fig3, ax3 = plt.subplots()
+        ax3.plot(timevec[rpeaks][:-1], rri, c="black")
+        ax3.set_xlabel("Time (ms)")	
+        ax3.set_ylabel("ms")
+        fig3.savefig(f"saved_plots/{subject}_{i}_RAW_RRI")
 
         # TEMP: Poincare and clustering
         fig2, ax2 = plt.subplots(1, 2)
@@ -378,9 +403,10 @@ def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=T
                 if (labels[j-1] == -1) and (labels[j] == -1):
                     poincare_outliers[j] = 1
 
-        # plot non-scaled poincare                  
-        sns.scatterplot(x=rri[:-1], y=rri[1:], hue=labels, ax=ax2[1])
-        fig2.savefig(f"saved_plots/{subject}_{i}_HIST")
+        # plot non-scaled poincare
+        labels_text = ["Valid" if label >= 0 else "Outlier" for label in labels]
+        sns.scatterplot(x=rri[:-1], y=rri[1:], hue=labels_text, palette={"Valid": "#000000", "Outlier": "#FF0000"}, ax=ax2[1])
+        fig2.savefig(f"saved_plots/{subject}_{i}_HIST_NEW")
 
         """        
         fig3, ax3 = plt.subplots()
@@ -395,9 +421,6 @@ def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=T
         """
 
         # <EXIT_CONDITION> # TODO not sure if this situation is possible
-        #print("REMOVE TESTING #2")
-        #TESTING_MEAN.append(np.mean(beats_distance))
-        #TESTING_STD.append(np.std(beats_distance))
         if sum(rri) < (1000 * 60) * 2:
             #TESTING_2M.append(i)
 
@@ -513,6 +536,23 @@ def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=T
         # produce a copy without the RRIs exceeding the threshold, for use in interpolation
         rri_corrected_supra_removed = np.delete(rri_corrected, suprathresh_idx)
         rri_corrected_supra_idx_removed = np.delete(np.array(range(0, len(rri_corrected))), suprathresh_idx)
+
+        # <EXIT_CONDITION>
+        # if too many have been detected as outliers
+        if sum(rri_corrected_supra_removed) < (1000 * 60) * 3:
+            #TESTING_2M.append(i)
+
+            freq_dom_hrv.append(np.NaN)
+            time_dom_hrv.append(np.NaN)
+
+            modification_report["excluded"] = True
+            modification_report["n_rpeaks_noisy"] = len(noisy_beats_idx)
+            modification_report["n_RRI_detected"] = len(rri)
+            modification_report["notes"] = "Sum of corrected RRI with outliers removed was less than 3Mins"
+            modification_report_list.append(modification_report) 
+
+            continue
+        # </EXIT_CONDITION>
         
         # interpolate points above threshold
         rri_corrected[suprathresh_idx] = np.interp(suprathresh_idx, rri_corrected_supra_idx_removed, rri_corrected_supra_removed)
@@ -540,7 +580,7 @@ def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=T
                 axs[1].plot(timevec[rpeaks][:-1], rri, c="crimson", label="HRV")
 
             # temp poincare
-            axs[1].scatter(timevec[rpeaks][:-1][np.where(poincare_outliers==1)], rri[np.where(poincare_outliers==1)], c="black", label="Poincare Outliers")
+            #axs[1].scatter(timevec[rpeaks][:-1][np.where(poincare_outliers==1)], rri[np.where(poincare_outliers==1)], c="black", label="Poincare Outliers")
 
             axs[1].set_title(f"HRV Signal")
 
@@ -563,7 +603,7 @@ def hrv_timeseries(df, segments, segment_onsets, ecg_srate, segment_len_min, v=T
             # save to image for inspection
             # should be 1280x720 (720p)
             fig.set_size_inches(12.80, 7.2)
-            fig.savefig(f"saved_plots/{subject}_{i}", dpi=100)
+            fig.savefig(f"saved_plots/{subject}_{i}_NEW", dpi=100)
     
 
         """ Calculate HRV Metrics """
@@ -637,126 +677,231 @@ if __name__ == "__main__":
     """
 
 
+    ecg_srate = 125
+
     # extract_and_merge.py must be ran prior to this
     with open("setup.json") as setup:
         setup_dict = json.load(setup)
 
-        subject = setup_dict["current_subject"]
+        #subject = setup_dict["current_subject"]
         all_subjects_dir = setup_dict["all_subjects_dir"]
         subject_mapping = setup_dict["subject_mapping"]
 
 
-    subject_dir = f"{all_subjects_dir}/{subject}"
 
-    ecg_srate = 125
+    logfile_loc = "LOGFILE"
+    with open(logfile_loc, "w") as logfile:
+        logfile.write(time.time())
+        logfile.write("\n")
 
-    START = time.time()
+    for subject in [subj for subj in sorted(os.listdir("subject_data")) if "taVNS" in subj]:
+
+        try:
+
+            rng = np.random.default_rng(1905)
+
+            subject_dir = f"{all_subjects_dir}/{subject}"
+            print(subject_dir)
+
+            saved_plots_dir = os.path.join(subject_dir, "saved_plots")
+            if not os.path.exists(saved_plots_dir):
+                    os.makedirs(saved_plots_dir, exist_ok=True)
 
 
-    print("Reading Merged Data ... ")
-    merged_df = pd.read_csv(f"{subject_dir}/{subject}_AX3Vital_MERGED.csv", usecols = ["timestamp", "ecg"])
+            START = time.time()
 
 
-    start = merged_df["timestamp"].iloc[0]
-    end = merged_df["timestamp"].iloc[-1]
+            print("Reading Merged Data ... ")
+            merged_df = pd.read_csv(f"{subject_dir}/{subject}_AX3Vital_MERGED.csv", usecols = ["timestamp", "ecg"])
 
-    duration_ms = end-start
-    duration_s = duration_ms / 1000
-    duration_m = duration_s / 60
-    duration_h = duration_m / 60
-    duration_d = duration_h / 24
-    print(f"Data spans {duration_d} days.")
 
-    timeline = np.arange(start, end+1)
-    
+            start = merged_df["timestamp"].iloc[0]
+            end = merged_df["timestamp"].iloc[-1]
 
-    window_length_min = 5
-    window_length_ms = (window_length_min * 60) * 1000
+            duration_ms = end-start
+            duration_s = duration_ms / 1000
+            duration_m = duration_s / 60
+            duration_h = duration_m / 60
+            duration_d = duration_h / 24
+            print(f"Data spans {duration_d} days.")
 
-    # create non-overlapping segments, and look for data occuring within these segment intervals (data is unevenly sampled)
-    
-    #timestamp is an int64, and is ms
-    onsets = np.arange(start, end, window_length_ms)
-
-    print("Gathering Timestamps Segments...")
-    
-    # break timestamps into n-minute segments (each seg is list of timestamps)
-    # when we want the data for a timestamp in a segment, we can just go get it from df
-    segments = []
-    timestamps = merged_df["timestamp"].to_numpy()
-    seg_start = 0
-    seg_end   = 0
-    for i in range(0, len(onsets)-1):
-        print(f"\r{i}/{len(onsets)-1}", end="")
-
-        # define the start/end intervals of this segment (these intervals may/may not exist in the data)
-        interval_start = onsets[i]
-        interval_end = onsets[i+1]
-        
-        #timestamps_in_interval = []
-
-        # find any timestamps that DO exist in the data that fall between these intervals
-        #while timestamps[pointer] >= interval_start and timestamps[pointer] <= interval_end:
-            #timestamps_in_interval.append(timestamps[pointer])
-    
-        
-        while timestamps[seg_start] < interval_start:
-            seg_start +=1
-    
-        seg_end = seg_start
-
-        while timestamps[seg_end] < interval_end:
-            seg_end +=1
-        
-        timestamps_in_interval = timestamps[seg_start:seg_end]	
-        
-        
-        #timestamps_in_interval = timestamps[(timestamps >= interval_start) & (timestamps < interval_end)]
-        
-        segments.append(timestamps_in_interval)
-     
-    print("\n")
-
-    """
-    check_segment_validity = False
-    if check_segment_validity:
-        print("Checking values collected in segments correspond to original timestamp list...") 
-        # iterate over every timestamp value and then each timestamp in each segment in turn,
-        # and check that each value corresponds and lines up correctly.
-        # i.e test that segments contain the right data, and no values missed (does NOT check that they are the right length)
-        ti = si = 0;
-        while ti < len(timestamps):
-            curr_timestamp_val = timestamps[ti]
-        
-            if si < len(segments):
-                current_segment = segments[si]
-            else:
-                # there will likely be data left over in timestamps (list of all timestamps in data)
-                # that don't fit into strict 5min segmenting, which will be left over when end of segments reached
-                print(f"End of segments reached at timestamp idx {ti}")
-                print(f"Final timestamp in segments was {curr_seg_val}, {timestamps[-1] - curr_seg_val} ms prior to final timestamp in data.")
-                ti = len(timestamps) # exit condition
+            timeline = np.arange(start, end+1)
             
-            for curr_seg_val in current_segment:
-                print(f"\r{curr_seg_val} -> {curr_timestamp_val}\t\t{ti}/{len(timestamps)-1}\t\t\t\t\t", end="")
+
+            window_length_min = 5
+            window_length_ms = (window_length_min * 60) * 1000
+
+            # create non-overlapping segments, and look for data occuring within these segment intervals (data is unevenly sampled)
+            
+            #timestamp is an int64, and is ms
+            onsets = np.arange(start, end, window_length_ms)
+
+            #print("Gathering Timestamps Segments...")
+            print("Gathering Segment Timestamp Start-stops...")
+            
+            # break timestamps into n-minute segments (each seg is list of timestamps)
+            # when we want the data for a timestamp in a segment, we can just go get it from df
+            timestamp_startstops = [] 
+            timestamps = merged_df["timestamp"].to_numpy()
+            seg_start = 0
+            seg_end   = 0
+            #subspace_start = 0 # what is the idx in timestamps of the start of the current search subspace?
+            for i in range(0, len(onsets)-1):
+
+                if i % 100 == 0:
+                    print(f"\r{i}/{len(onsets)-1}", end="")
+
+                # define the start/end intervals of this segment (these intervals may/may not exist in the data)
+                interval_start = onsets[i]
+                interval_end = onsets[i+1]
                 
-                if curr_seg_val == curr_timestamp_val:
-                    ti += 1
+                #timestamps_in_interval = []
+
+                # find any timestamps that DO exist in the data that fall between these intervals
+                
+                #while timestamps[pointer] >= interval_start and timestamps[pointer] <= interval_end:
+                    #timestamps_in_interval.append(timestamps[pointer])
+           
+
+                # find the closest start/end timestamps that actually exist in the data
+                seg_start = seg_end  # segment will likely start soon after the last one
+                while timestamps[seg_start] < interval_start:
+                    seg_start +=1
+            
+                seg_end = seg_start # segment end will definitely be after start, so bring forward
+                while timestamps[seg_end] < interval_end:
+                    seg_end +=1
+
+
+            
+
+                """
+                expected_delta = (window_length_min * 60) * ecg_srate
+                search_subspace =  timestamps[seg_end:seg_end+np.int64(np.ceil(expected_delta*1.5))]
+                seg_start = subspace_start + np.nanargmin(np.abs(search_subspace-interval_start))
+                seg_end = subspace_start + np.nanargmin(np.abs(search_subspace-interval_end))
+                subspace_start += len(search_subspace)
+                """
+               
+                #timestamps_in_interval = timestamps[(timestamps >= interval_start) & (timestamps < interval_end)]
+                #timestamps_in_interval = timestamps[seg_start:seg_end]	            
+
+                #timestamp_segments.append(timestamps_in_interval)
+                
+                timestamp_startstops.append([seg_start, seg_end])
+             
+            print("\n")
+
+            """
+            check_segment_validity = False
+            if check_segment_validity:
+                print("Checking values collected in segments correspond to original timestamp list...") 
+                # iterate over every timestamp value and then each timestamp in each segment in turn,
+                # and check that each value corresponds and lines up correctly.
+                # i.e test that segments contain the right data, and no values missed (does NOT check that they are the right length)
+                ti = si = 0;
+                while ti < len(timestamps):
                     curr_timestamp_val = timestamps[ti]
-                    pass
+                
+                    if si < len(segments):
+                        current_segment = segments[si]
+                    else:
+                        # there will likely be data left over in timestamps (list of all timestamps in data)
+                        # that don't fit into strict 5min segmenting, which will be left over when end of segments reached
+                        print(f"End of segments reached at timestamp idx {ti}")
+                        print(f"Final timestamp in segments was {curr_seg_val}, {timestamps[-1] - curr_seg_val} ms prior to final timestamp in data.")
+                        ti = len(timestamps) # exit condition
+                    
+                    for curr_seg_val in current_segment:
+                        print(f"\r{curr_seg_val} -> {curr_timestamp_val}\t\t{ti}/{len(timestamps)-1}\t\t\t\t\t", end="")
+                        
+                        if curr_seg_val == curr_timestamp_val:
+                            ti += 1
+                            curr_timestamp_val = timestamps[ti]
+                            pass
+                        else:
+                            print(f"Values were not equal at ti = {ti}")
+                            ti = len(timestamps) # exit condition
+                    si += 1
+            """
+
+            
+            # calculate HRV !
+
+            """
+            time_dom_df, freq_dom_df, modification_report_df = hrv_timeseries(merged_df, segments, segment_onsets = onsets, ecg_srate=ecg_srate, segment_len_min = window_length_min)
+
+            time_dom_df.to_csv(f"{subject_dir}/{subject}_TIMEDOM_NEW.csv")
+            freq_dom_df.to_csv(f"{subject_dir}/{subject}_FREQDOM_NEW.csv")
+            modification_report_df.to_csv(f"{subject_dir}/{subject}_MODIFICATION_REPORT_NEW.csv")
+            """
+
+
+            freq_dom_hrvs = []
+            time_dom_hrvs = []
+            modification_reports = [] 
+
+            segment_labels = []
+
+            print("Gathering Segments...")
+            for i, timestamp_startstop in enumerate(timestamp_startstops):
+
+                #segment_labels.append(segment_interval[0]) # use first timestamp of 5min interval *found in data* as label for segment
+                segment_labels.append(onsets[i]) # use exact start timestamp of the 5min segment (value which may not exist in data) in case no timestamps found in interval
+
+                print(f"\r{i}/{len(timestamp_startstops)-1}", end="")
+
+                # to get segment, get the section of the DF between the first timestamp found within this segment interval, and the last
+                segment = merged_df[(merged_df["timestamp"] >= timestamps[timestamp_startstop[0]]) & (merged_df["timestamp"] <= timestamps[timestamp_startstop[-1]])]
+                
+                # replace values that cannot be converted to float with np.NaN
+                error_vals = ["-"]  # this was found in taVNS002
+                segment["ecg"] = segment["ecg"].replace(error_vals, np.NaN)        
+
+                ecg = segment["ecg"].to_numpy(dtype=np.float64)
+
+                ecg = ecg[~np.isnan(ecg)]
+
+                # lowpass filter with cutoff of 22Hz to remove high frequency noise in ECG, make QRS detector's job easier
+                if len(ecg) != 0:
+                        if len(ecg.shape) > 1:
+                                ecg = ecg.T
+                                for ch in range(0, ecg.shape[0]):
+                                        ecg[ch] = butter_lowpass_filter(ecg[ch], 22, ecg_srate, order=4)
+                        else:
+                                ecg = butter_lowpass_filter(ecg, 22, ecg_srate, order=4)
+
+                eps = 0.14
+                min_samp = 35
+
+                rpeaks, rri, rri_corrected, freq_dom_hrv, time_dom_hrv, modification_report = hrv_per_segment(ecg, ecg_srate, window_length_min, segment_idx=i, save_plots_dir=saved_plots_dir, save_plots=True, save_plot_filename=i, use_segmenter="engzee", DBSCAN_RRI_EPSILON_MEAN_MULTIPLIER=eps, DBSCAN_MIN_SAMPLES=min_samp, rng=rng)
+                
+                if not isinstance(freq_dom_hrv, float):
+                        freq_dom_hrvs.append(np.array(freq_dom_hrv, dtype="object"))
                 else:
-                    print(f"Values were not equal at ti = {ti}")
-                    ti = len(timestamps) # exit condition
-            si += 1
-    """
+                        freq_dom_hrvs.append(np.full(shape=freq_dom_keys.shape, fill_value=np.NaN))
 
-    
-    # calculate HRV !
-    time_dom_df, freq_dom_df, modification_report_df = hrv_timeseries(merged_df, segments, segment_onsets = onsets, ecg_srate=ecg_srate, segment_len_min = window_length_min)
+                if not isinstance(time_dom_hrv, float):
+                        time_dom_hrvs.append(np.array(time_dom_hrv))
+                else:
+                        time_dom_hrvs.append(np.full(shape=time_dom_keys.shape, fill_value=np.NaN))
 
-    time_dom_df.to_csv(f"{subject_dir}/{subject}_TIMEDOM.csv")
-    freq_dom_df.to_csv(f"{subject_dir}/{subject}_FREQDOM.csv")
-    modification_report_df.to_csv(f"{subject_dir}/{subject}_MODIFICATION_REPORT.csv")
+                modification_reports.append(modification_report)
 
-    END = time.time()
-    print(f"START: {START}, END: {END}, END-START: {END-START}")
+
+            time_dom_df, freq_dom_df, modification_report_df = produce_hrv_dataframes(time_dom_hrvs, freq_dom_hrvs, modification_reports, segment_labels)
+            save_hrv_dataframes(time_dom_df, freq_dom_df, modification_report_df, subject_dir)
+
+
+
+
+            END = time.time()
+            print(f"START: {START}, END: {END}, END-START: {END-START}")
+
+            with open(logfile_loc, "a") as logfile:
+                logfile.write(f"\n{subject}: Success!")
+
+        except Exception as e:
+
+            with open(logfile_loc, "a") as logfile:
+                logfile.write(f"\n{subject}: {e}")

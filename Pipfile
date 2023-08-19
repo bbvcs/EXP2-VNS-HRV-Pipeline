@@ -17,6 +17,7 @@ pyod = "*"
 openpyxl = "*"
 scikit-learn = "*"
 seaborn = "*"
+pywavelets = "*"
 
 [dev-packages]
 
