@@ -691,7 +691,7 @@ if __name__ == "__main__":
 
     logfile_loc = "LOGFILE"
     with open(logfile_loc, "w") as logfile:
-        logfile.write(time.time())
+        logfile.write(f"{time.time()}")
         logfile.write("\n")
 
     for subject in [subj for subj in sorted(os.listdir("subject_data")) if "taVNS" in subj]:
