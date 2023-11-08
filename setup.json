@@ -1,5 +1,5 @@
 {
-"current_subject": "taVNS003",
+"current_subject": "taVNS006",
 "all_subjects_dir": "subject_data",
 "subject_mapping": {"taVNS001": ["VC2B008BF_02CA07_ecgs.csv",  "VC2B008BF_02CA07_vitals.csv", "AX3_taVNS001.csv"],
                     "taVNS002": ["VC2B008BF_02CA08_ecgs.csv",  "VC2B008BF_02CA08_vitals.csv", "AX3_taVNS002.csv"],
@@ -7,7 +7,16 @@
                     "taVNS004": ["VC2B008BF_02BE13_ecgs.csv",  "VC2B008BF_02BE13_vitals.csv", "AX3_taVNS004.csv"],
                     "taVNS005": ["VC2B008BF_02CA10_ecgs.csv",  "VC2B008BF_02CA10_vitals.csv", "AX3_taVNS005.csv"],
                     "taVNS006": ["VC2B008BF_02BE11_ecgs.csv", "VC2B008BF_02BE11_vitals.csv", "AX3_taVNS006.csv"],
-                    "taVNS008": ["VC2B008BF_02CA57_ecgs.csv", "VC2B008BF_02CA57_vitals.csv", "AX3_taVNS008.csv"]
+                    "taVNS007": ["VC2B008BF_02BE06_ecgs.csv","VC2B008BF_02BE06_vitals.csv","AX3_taVNS007.csv"],
+                    "taVNS008": ["VC2B008BF_02CA57_ecgs.csv", "VC2B008BF_02CA57_vitals.csv", "AX3_taVNS008.csv"],
+                    "taVNS009": ["VC2B008BF_02C26F_ecgs.csv","VC2B008BF_02C26F_vitals.csv","AX3_taVNS009.csv"],
+
+                    "taVNS011": ["VC2B008BF_02D46B_ecgs.csv","VC2B008BF_02D46B_vitals.csv","AX3_taVNS011.csv"],
+
+
+
+                    "taVNS015": ["VC2B008BF_02C273_ecgs.csv","VC2B008BF_02C273_vitals.csv","AX3_taVNS015.csv"]
+
                     }
 
 }

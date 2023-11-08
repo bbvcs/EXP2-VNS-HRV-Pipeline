@@ -6,6 +6,7 @@ import json
 
 import time
 import datetime
+import os
 
 def produce_timeseries(df, segments, column, function, v=True):
     timeseries = []
@@ -67,274 +68,276 @@ def legend_without_duplicate_labels(ax, **kwargs):
 
 if __name__ == "__main__":
 
-
+    
     with open("setup.json") as setup:
         setup_dict = json.load(setup)
 
-        subject = setup_dict["current_subject"]
+        #subject = setup_dict["current_subject"]
         all_subjects_dir = setup_dict["all_subjects_dir"]
         subject_mapping = setup_dict["subject_mapping"]
 
+    for subject in [f.name for f in os.scandir(all_subjects_dir) if f.is_dir()]:
+        print(f"\n{subject}")
 
-    subject_dir = f"{all_subjects_dir}/{subject}"
-    summary_spreadsheet = "EXP2_data_summary.xlsx"
+        subject_dir = f"{all_subjects_dir}/{subject}"
+        summary_spreadsheet = "EXP2_data_summary.xlsx"
 
-    print("Reading TIMESTAMPS from Merged AX3/Vitalpatch Data ...")
-    merged_df = pd.read_csv(f"{subject_dir}/{subject}_AX3Vital_MERGED.csv", usecols=["timestamp"]) # if you want all of the merged data, remove usecols parameter
-    
-    print("Reading Frequency Domain HRV Metrics ...")
-    freq_dom_df = pd.read_csv(f"{subject_dir}/{subject}_FREQDOM.csv") 
-     
-    print("Reading Time Domain HRV Metrics ... ")
-    time_dom_df = pd.read_csv(f"{subject_dir}/{subject}_TIMEDOM.csv")
-
-
-    # timestamp is used as the index column, so has label "Unnamed: 0"
-    freq_dom_df = freq_dom_df.rename(columns={"Unnamed: 0" : "timestamp"})
-    time_dom_df = time_dom_df.rename(columns={"Unnamed: 0" : "timestamp"})
+        print("Reading TIMESTAMPS from Merged AX3/Vitalpatch Data ...")
+        merged_df = pd.read_csv(f"{subject_dir}/{subject}_AX3Vital_MERGED.csv", usecols=["timestamp"]) # if you want all of the merged data, remove usecols parameter
+        
+        print("Reading Frequency Domain HRV Metrics ...")
+        freq_dom_df = pd.read_csv(f"{subject_dir}/{subject}_FREQDOM_NEW.csv") 
+         
+        print("Reading Time Domain HRV Metrics ... ")
+        time_dom_df = pd.read_csv(f"{subject_dir}/{subject}_TIMEDOM_NEW.csv")
 
 
-    all_timestamps = merged_df["timestamp"].to_numpy()
-    hrv_timestamps = time_dom_df["timestamp"].to_numpy() # timestamps are the same in freq & time dom dfs
+        # timestamp is used as the index column, so has label "Unnamed: 0"
+        freq_dom_df = freq_dom_df.rename(columns={"Unnamed: 0" : "timestamp"})
+        time_dom_df = time_dom_df.rename(columns={"Unnamed: 0" : "timestamp"})
 
 
-    print("Converting Timestamps ...")
-    # WARNING; formatting all timestamps takes a VERY long time!
-    # TODO save results to a JSON file/CSV/Python shelve once done?
-#    all_timestamps_formatted = np.zeros(shape = (len(all_timestamps)), dtype = datetime.datetime)
-#    for i in range(0, len(all_timestamps)):                         
-#        all_timestamps_formatted[i] = (convert_unixtime_ms_to_datetime(all_timestamps[i]))
-#
-#        # print for every integer percentage done (1%, 2%, ... 100%)
-#        if i % np.floor(len(all_timestamps) / 100) == 0:            
-#            print(f"{i / np.floor(len(all_timestamps) / 100)}%")
-
-    # Formatting only HRV Timestamps doesn't take long though
-    hrv_timestamps_formatted = np.vectorize(convert_unixtime_ms_to_datetime)(hrv_timestamps) # timestamps in HRV Dataframes represent the starting time of each 5 min segment 
+        all_timestamps = merged_df["timestamp"].to_numpy()
+        hrv_timestamps = time_dom_df["timestamp"].to_numpy() # timestamps are the same in freq & time dom dfs
 
 
+        print("Converting Timestamps ...")
+        # WARNING; formatting all timestamps takes a VERY long time!
+        # TODO save results to a JSON file/CSV/Python shelve once done?
+    #    all_timestamps_formatted = np.zeros(shape = (len(all_timestamps)), dtype = datetime.datetime)
+    #    for i in range(0, len(all_timestamps)):                         
+    #        all_timestamps_formatted[i] = (convert_unixtime_ms_to_datetime(all_timestamps[i]))
+    #
+    #        # print for every integer percentage done (1%, 2%, ... 100%)
+    #        if i % np.floor(len(all_timestamps) / 100) == 0:            
+    #            print(f"{i / np.floor(len(all_timestamps) / 100)}%")
 
-    basic_id = pd.read_excel(summary_spreadsheet, sheet_name="Ex2 Basic ID") # Contains study start/end dates
-    if not subject in list(basic_id["Study ID"]):
-        raise Exception(f"{subject} not found in {summary_spreadsheet} - do you have the most up-to-date copy?")
-
-    stimulation_times = pd.read_excel(summary_spreadsheet, sheet_name="Ex2 Stimulation") # Contains times of VNS
-    joined_df = basic_id.merge(stimulation_times, how="outer", left_on="Study ID", right_on="Study ID", sort=True)
-    
-    # get subject info on start/end date and VNS times
-    subject_df = joined_df[joined_df["Study ID"] == subject]
-
-    """
-    recording_start_day = subject_df["Data start"].iloc[0]
-    recording_end_day   = subject_df["Data end"].iloc[0]
-    if isinstance(recording_start_day, str):
-        recording_start_day = datetime.datetime.strptime(subject_df["Data start"].iloc[0],  "%d/%m/%Y")
-    if isinstance(recording_end_day, str):
-        recording_end_day   = datetime.datetime.strptime(subject_df["Data end"].iloc[0],    "%d/%m/%Y")
-    
-    """
-    recording_start_day = hrv_timestamps_formatted[0].date()
-    recording_end_day = hrv_timestamps_formatted[-1].date()
-    
-    # get AM/PM VNS times. ASSUMPTIONS; VNS starts the day after recording.
-    try:
-        #day_2_AM = datetime.datetime.combine(recording_start_day.date() + datetime.timedelta(days=1), subject_df["Day 2 AM"].iloc[0])
-        day_2_AM = datetime.datetime.combine(recording_start_day + datetime.timedelta(days=1), subject_df["Day 2 AM"].iloc[0])
-    except Exception:
-        day_2_AM = None    
-    try:
-        day_2_PM = datetime.datetime.combine(recording_start_day + datetime.timedelta(days=1), subject_df["Day 2 PM"].iloc[0])
-    except Exception:
-        day_2_PM = None  
-
-    try:
-        day_3_AM = datetime.datetime.combine(recording_start_day + datetime.timedelta(days=2), subject_df["Day 3 AM"].iloc[0])
-    except Exception:
-        day_3_AM = None    
-    try:
-        day_3_PM = datetime.datetime.combine(recording_start_day + datetime.timedelta(days=2), subject_df["Day 3 PM"].iloc[0])
-    except Exception:
-        day_3_PM = None 
-
-
-    try:
-        day_5_AM = datetime.datetime.combine(recording_start_day + datetime.timedelta(days=4), subject_df["Day 5 AM"].iloc[0])
-    except Exception:
-        day_5_AM = None    
-    try:
-        day_5_PM = datetime.datetime.combine(recording_start_day + datetime.timedelta(days=4), subject_df["Day 5 PM"].iloc[0])
-    except Exception:
-        day_5_PM = None 
-
-
-    try:
-        day_6_AM = datetime.datetime.combine(recording_start_day + datetime.timedelta(days=5), subject_df["Day 6 AM"].iloc[0])
-    except Exception:
-        day_6_AM = None    
-    try:
-        day_6_PM = datetime.datetime.combine(recording_start_day + datetime.timedelta(days=5), subject_df["Day 6 PM"].iloc[0])
-    except Exception:
-        day_6_PM = None 
+        # Formatting only HRV Timestamps doesn't take long though
+        hrv_timestamps_formatted = np.vectorize(convert_unixtime_ms_to_datetime)(hrv_timestamps) # timestamps in HRV Dataframes represent the starting time of each 5 min segment 
 
 
 
-    """ Produce Plot """
+        basic_id = pd.read_excel(summary_spreadsheet, sheet_name="Ex2 Basic ID") # Contains study start/end dates
+        if not subject in list(basic_id["Study ID"]):
+            raise Exception(f"{subject} not found in {summary_spreadsheet} - do you have the most up-to-date copy?")
 
-    PROPERTY = "fft_ratio"
-    FUNC = np.mean # ensure to do without brackets e.g np.mean, not np.mean()
-    FUNC_PROPERTY_DESC = "Mean LF/HF Ratio" # what is FUNC doing to PROPERTY?
-    DF = freq_dom_df
+        stimulation_times = pd.read_excel(summary_spreadsheet, sheet_name="Ex2 Stimulation") # Contains times of VNS
+        joined_df = basic_id.merge(stimulation_times, how="outer", left_on="Study ID", right_on="Study ID", sort=True)
+        
+        # get subject info on start/end date and VNS times
+        subject_df = joined_df[joined_df["Study ID"] == subject]
 
-    # for each property, call FUNC over the property (e.g np.mean over the LF/HF Ratio in this period)
-    try:
-        day_2_AM_value = FUNC(DF[PROPERTY]
-            .iloc[find_nearest(hrv_timestamps_formatted, day_2_AM):find_nearest(hrv_timestamps_formatted, day_2_AM + datetime.timedelta(hours=1))])
-    except Exception:
-        day_2_AM_value = None
-    try:
-        day_2_PM_value = FUNC(DF[PROPERTY]
-            .iloc[find_nearest(hrv_timestamps_formatted, day_2_PM):find_nearest(hrv_timestamps_formatted, day_2_PM + datetime.timedelta(hours=1))])
-    except Exception:
-        day_2_PM_value = None        
+        """
+        recording_start_day = subject_df["Data start"].iloc[0]
+        recording_end_day   = subject_df["Data end"].iloc[0]
+        if isinstance(recording_start_day, str):
+            recording_start_day = datetime.datetime.strptime(subject_df["Data start"].iloc[0],  "%d/%m/%Y")
+        if isinstance(recording_end_day, str):
+            recording_end_day   = datetime.datetime.strptime(subject_df["Data end"].iloc[0],    "%d/%m/%Y")
+        
+        """
+        recording_start_day = hrv_timestamps_formatted[0].date()
+        recording_end_day = hrv_timestamps_formatted[-1].date()
+        
+        # get AM/PM VNS times. ASSUMPTIONS; VNS starts the day after recording.
+        try:
+            #day_2_AM = datetime.datetime.combine(recording_start_day.date() + datetime.timedelta(days=1), subject_df["Day 2 AM"].iloc[0])
+            day_2_AM = datetime.datetime.combine(recording_start_day + datetime.timedelta(days=1), subject_df["Day 2 AM"].iloc[0])
+        except Exception:
+            day_2_AM = None    
+        try:
+            day_2_PM = datetime.datetime.combine(recording_start_day + datetime.timedelta(days=1), subject_df["Day 2 PM"].iloc[0])
+        except Exception:
+            day_2_PM = None  
 
-
-    try:
-        day_3_AM_value = FUNC(DF[PROPERTY]
-            .iloc[find_nearest(hrv_timestamps_formatted, day_3_AM):find_nearest(hrv_timestamps_formatted, day_3_AM + datetime.timedelta(hours=1))])
-    except Exception:
-        day_3_AM_value = None
-    try:
-        day_3_PM_value = FUNC(DF[PROPERTY]
-            .iloc[find_nearest(hrv_timestamps_formatted, day_3_PM):find_nearest(hrv_timestamps_formatted, day_3_PM + datetime.timedelta(hours=1))])
-    except Exception:
-        day_3_PM_value = None 
-
-    try:
-        day_5_AM_value = FUNC(DF[PROPERTY]
-            .iloc[find_nearest(hrv_timestamps_formatted, day_5_AM):find_nearest(hrv_timestamps_formatted, day_5_AM + datetime.timedelta(hours=1))])
-    except Exception:
-        day_5_AM_value = None
-    try:
-        day_5_PM_value = FUNC(DF[PROPERTY]
-            .iloc[find_nearest(hrv_timestamps_formatted, day_5_PM):find_nearest(hrv_timestamps_formatted, day_5_PM + datetime.timedelta(hours=1))])
-    except Exception:
-        day_5_PM_value = None 
-
-    try:
-        day_6_AM_value = FUNC(DF[PROPERTY]
-            .iloc[find_nearest(hrv_timestamps_formatted, day_6_AM):find_nearest(hrv_timestamps_formatted, day_6_AM + datetime.timedelta(hours=1))])
-    except Exception:
-        day_6_AM_value = None
-    try:
-        day_6_PM_value = FUNC(DF[PROPERTY]
-            .iloc[find_nearest(hrv_timestamps_formatted, day_6_PM):find_nearest(hrv_timestamps_formatted, day_6_PM + datetime.timedelta(hours=1))])
-    except Exception:
-        day_6_PM_value = None 
-
-    
-    if (subject_df["Round 1 (Day 2 + 3)"].iloc[0] == "Active") and (subject_df["Round 2 (Day 5 + 6)"].iloc[0] == "Sham"):
-        round_1_label = "Round 1 (Day 2 + 3) (Active)"
-        round_1_color = "palegreen"    
-        round_2_label = "Round 2 (Day 5 + 6) (Sham)"
-        round_2_color = "salmon"    
-
-    elif (subject_df["Round 1 (Day 2 + 3)"].iloc[0] == "Sham") and (subject_df["Round 2 (Day 5 + 6)"].iloc[0] == "Active"):
-        round_1_label = "Round 1 (Day 2 + 3) (Sham)"
-        round_1_color = "salmon"         
-        round_2_label = "Round 2 (Day 5 + 6) (Active)"
-        round_2_color = "palegreen"  
-    else:
-        print("ERROR: Please ensure labelling of sham/active VNS is correct.")
+        try:
+            day_3_AM = datetime.datetime.combine(recording_start_day + datetime.timedelta(days=2), subject_df["Day 3 AM"].iloc[0])
+        except Exception:
+            day_3_AM = None    
+        try:
+            day_3_PM = datetime.datetime.combine(recording_start_day + datetime.timedelta(days=2), subject_df["Day 3 PM"].iloc[0])
+        except Exception:
+            day_3_PM = None 
 
 
-    fig, axs = plt.subplots(2, 1)
-    axs[0].plot(hrv_timestamps_formatted, DF[PROPERTY])
+        try:
+            day_5_AM = datetime.datetime.combine(recording_start_day + datetime.timedelta(days=4), subject_df["Day 5 AM"].iloc[0])
+        except Exception:
+            day_5_AM = None    
+        try:
+            day_5_PM = datetime.datetime.combine(recording_start_day + datetime.timedelta(days=4), subject_df["Day 5 PM"].iloc[0])
+        except Exception:
+            day_5_PM = None 
 
-    # plot color bars representing hour of activity
-    if day_2_AM: axs[0].axvspan(day_2_AM, day_2_AM+datetime.timedelta(hours=1), label=round_1_label, color=round_1_color)
-    if day_2_PM: axs[0].axvspan(day_2_PM, day_2_PM+datetime.timedelta(hours=1), label=round_1_label, color=round_1_color)
-    if day_3_AM: axs[0].axvspan(day_3_AM, day_3_AM+datetime.timedelta(hours=1), label=round_1_label, color=round_1_color)
-    if day_3_PM: axs[0].axvspan(day_3_PM, day_3_PM+datetime.timedelta(hours=1), label=round_1_label, color=round_1_color)
 
-    if day_5_AM: axs[0].axvspan(day_5_AM, day_5_AM+datetime.timedelta(hours=1), label=round_2_label, color=round_2_color)
-    if day_5_PM: axs[0].axvspan(day_5_PM, day_5_PM+datetime.timedelta(hours=1), label=round_2_label, color=round_2_color)
-    if day_6_AM: axs[0].axvspan(day_6_AM, day_6_AM+datetime.timedelta(hours=1), label=round_2_label, color=round_2_color)
-    if day_6_PM: axs[0].axvspan(day_6_PM, day_6_PM+datetime.timedelta(hours=1), label=round_2_label, color=round_2_color)
-
-    # plot the baseline hour color bar (assuming this is first hour of recording)
-    baseline_color = "darkorange"
-    axs[0].axvspan(hrv_timestamps_formatted[0], hrv_timestamps_formatted[0]+datetime.timedelta(hours=1), label="Baseline", color=baseline_color)
-    baseline_value = FUNC(DF[PROPERTY].iloc[0:find_nearest(hrv_timestamps_formatted, hrv_timestamps_formatted[0] + datetime.timedelta(hours=1))])
-
-    # add value as label inside color bar
-    TEXT_Y = np.nanmax(DF[PROPERTY]) - 10
-    TEXT_SIZE = "small"
-    TEXT_ROTATION = 90
-    TEXT_N_DP = 2
-    if day_2_AM: axs[0].text(day_2_AM, TEXT_Y, round(day_2_AM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
-    if day_2_PM: axs[0].text(day_2_PM, TEXT_Y, round(day_2_PM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
-    if day_3_AM: axs[0].text(day_3_AM, TEXT_Y, round(day_3_AM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
-    if day_3_PM: axs[0].text(day_3_PM, TEXT_Y, round(day_3_PM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
-    if day_5_AM: axs[0].text(day_5_AM, TEXT_Y, round(day_5_AM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
-    if day_5_PM: axs[0].text(day_5_PM, TEXT_Y, round(day_5_PM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
-    if day_6_AM: axs[0].text(day_6_AM, TEXT_Y, round(day_6_AM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
-    if day_6_PM: axs[0].text(day_6_PM, TEXT_Y, round(day_6_PM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
-    # add baseline value label
-    axs[0].text(hrv_timestamps_formatted[0], TEXT_Y, round(baseline_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)    
+        try:
+            day_6_AM = datetime.datetime.combine(recording_start_day + datetime.timedelta(days=5), subject_df["Day 6 AM"].iloc[0])
+        except Exception:
+            day_6_AM = None    
+        try:
+            day_6_PM = datetime.datetime.combine(recording_start_day + datetime.timedelta(days=5), subject_df["Day 6 PM"].iloc[0])
+        except Exception:
+            day_6_PM = None 
 
 
 
-    axs[0].set_xlabel("Time")
-    axs[0].set_ylabel("LF/HF Ratio")
-    axs[0].set_xlim([min(hrv_timestamps_formatted), max(hrv_timestamps_formatted)])
-    axs[0].set_title(f"VNS EXP2 {FUNC_PROPERTY_DESC} for Subject {subject}")
+        """ Produce Plot """
 
-    legend_without_duplicate_labels(axs[0], fontsize="x-small")
-    
+        PROPERTY = "fft_ratio"
+        FUNC = np.mean # ensure to do without brackets e.g np.mean, not np.mean()
+        FUNC_PROPERTY_DESC = "Mean LF/HF Ratio" # what is FUNC doing to PROPERTY?
+        DF = freq_dom_df
 
-    # plot every hour
-    h = datetime.timedelta(hours=1)
-    hour_onsets = np.arange(hrv_timestamps_formatted[0], hrv_timestamps_formatted[-1], h, dtype=datetime.datetime)
-    hourly_values = np.zeros(shape=(len(hour_onsets)))
-    for i in range(len(hour_onsets)-1):
-        h_start = find_nearest(hrv_timestamps_formatted, hour_onsets[i])
-        h_end =  find_nearest(hrv_timestamps_formatted, hour_onsets[i+1])
+        # for each property, call FUNC over the property (e.g np.mean over the LF/HF Ratio in this period)
+        try:
+            day_2_AM_value = FUNC(DF[PROPERTY]
+                .iloc[find_nearest(hrv_timestamps_formatted, day_2_AM):find_nearest(hrv_timestamps_formatted, day_2_AM + datetime.timedelta(hours=1))])
+        except Exception:
+            day_2_AM_value = None
+        try:
+            day_2_PM_value = FUNC(DF[PROPERTY]
+                .iloc[find_nearest(hrv_timestamps_formatted, day_2_PM):find_nearest(hrv_timestamps_formatted, day_2_PM + datetime.timedelta(hours=1))])
+        except Exception:
+            day_2_PM_value = None        
 
-        hour_value = FUNC(DF[PROPERTY].iloc[h_start:h_end])
 
-        hourly_values[i] = hour_value
+        try:
+            day_3_AM_value = FUNC(DF[PROPERTY]
+                .iloc[find_nearest(hrv_timestamps_formatted, day_3_AM):find_nearest(hrv_timestamps_formatted, day_3_AM + datetime.timedelta(hours=1))])
+        except Exception:
+            day_3_AM_value = None
+        try:
+            day_3_PM_value = FUNC(DF[PROPERTY]
+                .iloc[find_nearest(hrv_timestamps_formatted, day_3_PM):find_nearest(hrv_timestamps_formatted, day_3_PM + datetime.timedelta(hours=1))])
+        except Exception:
+            day_3_PM_value = None 
 
-        if i == 0:
-            # plot the baseline hour
-            axs[1].bar(hrv_timestamps_formatted[h_start] + h/2, hour_value, h, color=baseline_color)
+        try:
+            day_5_AM_value = FUNC(DF[PROPERTY]
+                .iloc[find_nearest(hrv_timestamps_formatted, day_5_AM):find_nearest(hrv_timestamps_formatted, day_5_AM + datetime.timedelta(hours=1))])
+        except Exception:
+            day_5_AM_value = None
+        try:
+            day_5_PM_value = FUNC(DF[PROPERTY]
+                .iloc[find_nearest(hrv_timestamps_formatted, day_5_PM):find_nearest(hrv_timestamps_formatted, day_5_PM + datetime.timedelta(hours=1))])
+        except Exception:
+            day_5_PM_value = None 
+
+        try:
+            day_6_AM_value = FUNC(DF[PROPERTY]
+                .iloc[find_nearest(hrv_timestamps_formatted, day_6_AM):find_nearest(hrv_timestamps_formatted, day_6_AM + datetime.timedelta(hours=1))])
+        except Exception:
+            day_6_AM_value = None
+        try:
+            day_6_PM_value = FUNC(DF[PROPERTY]
+                .iloc[find_nearest(hrv_timestamps_formatted, day_6_PM):find_nearest(hrv_timestamps_formatted, day_6_PM + datetime.timedelta(hours=1))])
+        except Exception:
+            day_6_PM_value = None 
+
+        
+        if (subject_df["Round 1 (Day 2 + 3)"].iloc[0] == "Active") and (subject_df["Round 2 (Day 5 + 6)"].iloc[0] == "Sham"):
+            round_1_label = "Round 1 (Day 2 + 3) (Active)"
+            round_1_color = "palegreen"    
+            round_2_label = "Round 2 (Day 5 + 6) (Sham)"
+            round_2_color = "salmon"    
+
+        elif (subject_df["Round 1 (Day 2 + 3)"].iloc[0] == "Sham") and (subject_df["Round 2 (Day 5 + 6)"].iloc[0] == "Active"):
+            round_1_label = "Round 1 (Day 2 + 3) (Sham)"
+            round_1_color = "salmon"         
+            round_2_label = "Round 2 (Day 5 + 6) (Active)"
+            round_2_color = "palegreen"  
         else:
-            axs[1].bar(hrv_timestamps_formatted[h_start] + h/2, hour_value, h, color="gray")
+            print("ERROR: Please ensure labelling of sham/active VNS is correct.")
 
 
-    # plot the hours where VNS was active  
-    alpha = 0.8
+        fig, axs = plt.subplots(2, 1)
+        axs[0].plot(hrv_timestamps_formatted, DF[PROPERTY])
 
-    axs[1].bar(day_2_AM + h/2, day_2_AM_value, h, label=round_1_label, color=round_1_color, alpha=alpha)
-    axs[1].bar(day_2_PM + h/2, day_2_PM_value, h, label=round_1_label, color=round_1_color, alpha=alpha)
-    axs[1].bar(day_3_AM + h/2, day_3_AM_value, h, label=round_1_label, color=round_1_color, alpha=alpha)
-    axs[1].bar(day_3_PM + h/2, day_3_PM_value, h, label=round_1_label, color=round_1_color, alpha=alpha)
+        # plot color bars representing hour of activity
+        if day_2_AM: axs[0].axvspan(day_2_AM, day_2_AM+datetime.timedelta(hours=1), label=round_1_label, color=round_1_color)
+        if day_2_PM: axs[0].axvspan(day_2_PM, day_2_PM+datetime.timedelta(hours=1), label=round_1_label, color=round_1_color)
+        if day_3_AM: axs[0].axvspan(day_3_AM, day_3_AM+datetime.timedelta(hours=1), label=round_1_label, color=round_1_color)
+        if day_3_PM: axs[0].axvspan(day_3_PM, day_3_PM+datetime.timedelta(hours=1), label=round_1_label, color=round_1_color)
 
-    axs[1].bar(day_5_AM + h/2, day_5_AM_value, h, label=round_2_label, color=round_2_color, alpha=alpha)
-    axs[1].bar(day_5_PM + h/2, day_5_PM_value, h, label=round_2_label, color=round_2_color, alpha=alpha)
-    axs[1].bar(day_6_AM + h/2, day_6_AM_value, h, label=round_2_label, color=round_2_color, alpha=alpha)
-    axs[1].bar(day_6_PM + h/2, day_6_PM_value, h, label=round_2_label, color=round_2_color, alpha=alpha)
+        if day_5_AM: axs[0].axvspan(day_5_AM, day_5_AM+datetime.timedelta(hours=1), label=round_2_label, color=round_2_color)
+        if day_5_PM: axs[0].axvspan(day_5_PM, day_5_PM+datetime.timedelta(hours=1), label=round_2_label, color=round_2_color)
+        if day_6_AM: axs[0].axvspan(day_6_AM, day_6_AM+datetime.timedelta(hours=1), label=round_2_label, color=round_2_color)
+        if day_6_PM: axs[0].axvspan(day_6_PM, day_6_PM+datetime.timedelta(hours=1), label=round_2_label, color=round_2_color)
 
-    axs[1].set_xlabel("Time")
-    axs[1].set_ylabel(FUNC_PROPERTY_DESC + " (Hourly)")
-    axs[1].set_xlim([min(hrv_timestamps_formatted), max(hrv_timestamps_formatted)])
+        # plot the baseline hour color bar (assuming this is first hour of recording)
+        baseline_color = "darkorange"
+        axs[0].axvspan(hrv_timestamps_formatted[0], hrv_timestamps_formatted[0]+datetime.timedelta(hours=1), label="Baseline", color=baseline_color)
+        baseline_value = FUNC(DF[PROPERTY].iloc[0:find_nearest(hrv_timestamps_formatted, hrv_timestamps_formatted[0] + datetime.timedelta(hours=1))])
+
+        # add value as label inside color bar
+        TEXT_Y = np.nanmax(DF[PROPERTY]) - 10
+        TEXT_SIZE = "small"
+        TEXT_ROTATION = 90
+        TEXT_N_DP = 2
+        if day_2_AM: axs[0].text(day_2_AM, TEXT_Y, round(day_2_AM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
+        if day_2_PM: axs[0].text(day_2_PM, TEXT_Y, round(day_2_PM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
+        if day_3_AM: axs[0].text(day_3_AM, TEXT_Y, round(day_3_AM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
+        if day_3_PM: axs[0].text(day_3_PM, TEXT_Y, round(day_3_PM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
+        if day_5_AM: axs[0].text(day_5_AM, TEXT_Y, round(day_5_AM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
+        if day_5_PM: axs[0].text(day_5_PM, TEXT_Y, round(day_5_PM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
+        if day_6_AM: axs[0].text(day_6_AM, TEXT_Y, round(day_6_AM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
+        if day_6_PM: axs[0].text(day_6_PM, TEXT_Y, round(day_6_PM_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)
+        # add baseline value label
+        axs[0].text(hrv_timestamps_formatted[0], TEXT_Y, round(baseline_value, TEXT_N_DP), fontsize=TEXT_SIZE, rotation=TEXT_ROTATION)    
 
 
-    # should be 1280x720 (720p)
-    fig.set_size_inches(12.80, 7.2)
-    fig.savefig(f"{subject}_plot_data_out", dpi=100)
+
+        axs[0].set_xlabel("Time")
+        axs[0].set_ylabel("LF/HF Ratio")
+        axs[0].set_xlim([min(hrv_timestamps_formatted), max(hrv_timestamps_formatted)])
+        axs[0].set_title(f"VNS EXP2 {FUNC_PROPERTY_DESC} for Subject {subject}")
+
+        legend_without_duplicate_labels(axs[0], fontsize="x-small")
+        
+
+        # plot every hour
+        h = datetime.timedelta(hours=1)
+        hour_onsets = np.arange(hrv_timestamps_formatted[0], hrv_timestamps_formatted[-1], h, dtype=datetime.datetime)
+        hourly_values = np.zeros(shape=(len(hour_onsets)))
+        for i in range(len(hour_onsets)-1):
+            h_start = find_nearest(hrv_timestamps_formatted, hour_onsets[i])
+            h_end =  find_nearest(hrv_timestamps_formatted, hour_onsets[i+1])
+
+            hour_value = FUNC(DF[PROPERTY].iloc[h_start:h_end])
+
+            hourly_values[i] = hour_value
+
+            if i == 0:
+                # plot the baseline hour
+                axs[1].bar(hrv_timestamps_formatted[h_start] + h/2, hour_value, h, color=baseline_color)
+            else:
+                axs[1].bar(hrv_timestamps_formatted[h_start] + h/2, hour_value, h, color="gray")
 
 
-    # some examples of plotting the data interactively:
+        # plot the hours where VNS was active  
+        alpha = 0.8
+
+        if day_2_AM: axs[1].bar(day_2_AM + h/2, day_2_AM_value, h, label=round_1_label, color=round_1_color, alpha=alpha)
+        if day_2_PM: axs[1].bar(day_2_PM + h/2, day_2_PM_value, h, label=round_1_label, color=round_1_color, alpha=alpha)
+        if day_3_AM: axs[1].bar(day_3_AM + h/2, day_3_AM_value, h, label=round_1_label, color=round_1_color, alpha=alpha)
+        if day_3_PM: axs[1].bar(day_3_PM + h/2, day_3_PM_value, h, label=round_1_label, color=round_1_color, alpha=alpha)
+
+        if day_5_AM: axs[1].bar(day_5_AM + h/2, day_5_AM_value, h, label=round_2_label, color=round_2_color, alpha=alpha)
+        if day_5_PM: axs[1].bar(day_5_PM + h/2, day_5_PM_value, h, label=round_2_label, color=round_2_color, alpha=alpha)
+        if day_6_AM: axs[1].bar(day_6_AM + h/2, day_6_AM_value, h, label=round_2_label, color=round_2_color, alpha=alpha)
+        if day_6_PM: axs[1].bar(day_6_PM + h/2, day_6_PM_value, h, label=round_2_label, color=round_2_color, alpha=alpha)
+
+        axs[1].set_xlabel("Time")
+        axs[1].set_ylabel(FUNC_PROPERTY_DESC + " (Hourly)")
+        axs[1].set_xlim([min(hrv_timestamps_formatted), max(hrv_timestamps_formatted)])
+
+
+        # should be 1280x720 (720p)
+        fig.set_size_inches(12.80, 7.2)
+        fig.savefig(f"{subject}_plot_data_out", dpi=100)
+
+
+        # some examples of plotting the data interactively:
 
     
 

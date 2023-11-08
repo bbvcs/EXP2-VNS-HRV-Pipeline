@@ -694,7 +694,7 @@ if __name__ == "__main__":
         logfile.write(f"{time.time()}")
         logfile.write("\n")
 
-    for subject in [subj for subj in sorted(os.listdir("subject_data")) if "taVNS" in subj]:
+    for subject in [subj for subj in sorted(os.listdir("subject_data")) if subj in subject_mapping.keys()]:
 
         try:
 
