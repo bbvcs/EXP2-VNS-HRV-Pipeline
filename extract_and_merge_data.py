@@ -75,7 +75,7 @@ if __name__ == "__main__":
     ax3_extra = ax3_df.iloc[-1]['timestamp'] - vitalpatch_end
     if ax3_extra > 0:
         print(f"AX3 data contains {ax3_extra} samples following the final vitalpatch sample. Removing these samples...")
-        ax3_df = ax3_df.drop(ax3_df.index[ax3_df["timestamp"] > vitalpatch_end])
+	ax3_df.drop(ax3_df.index[(ax3_df["timestamp"] > vitalpatch_end).idxmax():], inplace=True)
 
     print("Merging Vitalpatch and AX3 dataframes ...")
     # create dataframe of times in timeline -> ecg and vital properties (NaN if not present)
